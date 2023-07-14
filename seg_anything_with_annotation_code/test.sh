@@ -1,0 +1,9 @@
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_1.jpg"   --gpu 2
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_2.jpg"   --gpu 2
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_3.jpg"   --gpu 2
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_4.jpg"   --gpu 2
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_5.jpg"   --gpu 2
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_6.png"   --gpu 2
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_7.png"   --gpu 2
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_8.png"   --gpu 2
+python -u text_prompt.py --img   "/home/khiem/segment-anything/demo_imgs/screwdriver_9.png"   --gpu 2
