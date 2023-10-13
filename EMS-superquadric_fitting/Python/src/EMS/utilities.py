@@ -4,6 +4,7 @@ import plyfile
 
 def showSuperquadrics(x, threshold = 1e-2, num_limit = 10000, arclength = 0.02):
     # avoid numerical instability in sampling
+
     if x.shape[0] < 0.007:
         x.shape[0] = 0.007
     if x.shape[1] < 0.007:
@@ -29,7 +30,8 @@ def showSuperquadrics(x, threshold = 1e-2, num_limit = 10000, arclength = 0.02):
             z_mesh[m, n] = point_temp[2]
     
     mlab.view(azimuth=0.0, elevation=0.0, distance=2)
-    mlab.mesh(x_mesh, y_mesh, z_mesh, color=(0, 0, 1), opacity=0.8)
+    
+    mlab.mesh(x_mesh, y_mesh, z_mesh, color=tuple(np.random.rand(3)), opacity=0.8)
 
 
 
@@ -108,8 +110,13 @@ def angle2points(theta, scale, epsilon):
 def read_ply(path_to_file):
     # read points from a .ply file and store in an nparray
     plydata = plyfile.PlyData.read(path_to_file)
-    pc = plydata['vertex'].data
-    return np.array([[x, y, z] for x, y, z in pc])
+    # Access the 'vertex' element, which typically contains the 'x', 'y', 'z', and 'red', 'green', 'blue' properties
+    vertices = plydata['vertex']
+
+    # Create a new list of vertices without the 'red', 'green', 'blue' properties
+    filtered_vertices = [(vertex['x'], vertex['y'], vertex['z']) for vertex in vertices]
+        
+    return np.array(filtered_vertices)
 
 
 def showPoints(point, scale_factor=0.1):
