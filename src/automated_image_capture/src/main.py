@@ -43,6 +43,7 @@ from sensor_msgs.msg import JointState, CameraInfo
 import pyrealsense2 as rs
 import numpy as np
 import cv2
+import heapq
 
 
 bridge = CvBridge()
@@ -314,8 +315,9 @@ def get_poses():
       grasp_pose.orientation.w = rot_quat[3]
       pose_coll.append(grasp_pose)
       
+    return pose_coll
 
-
+'''
     counter = 10
     dist_map=[]
     import heapq
@@ -370,12 +372,64 @@ def get_poses():
       heapq.heappop(dist_map) 
       counter = counter -1
         
-    return motion_execution_client.get_result()
+    return motion_execution_client.get_result()'''
    
+def captureImagesAlongTrajectory(pose_coll, no_of_iterations):
+    counter = no_of_iterations
+    dist_map=[]
+    
+    motion_execution_client = actionlib.SimpleActionClient('PandaMotionExecutionActionServer',MotionExecutionAction)
+    motion_execution_client.wait_for_server()
+
+    i = 1  # for creating indexed bag values 
+    print("Starting execution")
+    while counter > 0 : 
+      if not dist_map:
+        pose = random.choices(pose_coll)
+        pose = pose[0]
+        dist = 0
+        dist_map.append((dist,pose))
+      heapq.heapify(dist_map)
+      pose = dist_map[0][1]
+      goal = MotionExecutionGoal()
+      goal.ee_trajectory = [pose]
+      goal.gripper_state = [False]
+      motion_execution_client.send_goal(goal)  
+      motion_execution_client.wait_for_result()
+      exe_result = motion_execution_client.get_result()
+      print("At iteration: ", counter)
+      if(exe_result.result == exe_result.SUCCESS):
+        print("Next pose found")
+        bag_name = f"bag_{i}.bag"  # Construct the bag name
+        print(bag_name)
+        i = i+1
+        # Open the bag file for writing
+        with rosbag.Bag(bag_name, 'w') as bag:
+          joint_state_sub = rospy.wait_for_message("/joint_states", JointState)
+          bag.write("/camera/joint_states", joint_state_sub)
+          print("Obtained joint angles")
+          camera_pose = rospy.wait_for_message("/panda_camera_pose", Pose)
+          bag.write("/camera/camera_pose", camera_pose)
+          print("Obtained camera pose")
+          write_image(bag, bag_name)
+          print("Obtained images")
+          print("Checking for next pose")
+          for j in range(1, len(pose_coll)):
+            if pose_coll[j] == pose :
+              continue
+            distance = np.sqrt((pose_coll[j].position.x - pose.position.x)**2 + (pose_coll[j].position.y - pose.position.y)**2  + (pose_coll[j].position.z - pose.position.z)**2)
+      heapq.heapify(dist_map)
+      heapq.heappop(dist_map) 
+      counter = counter -1
+        
+    return motion_execution_client.get_result()
       
 
 if __name__ == '__main__':
     rospy.init_node('main')
-    get_poses()
+    poses = get_poses()
+    #can also pass a custom pose list
+    no_of_iterations = int(input("Enter the number of iterations: "))
+    captureImagesAlongTrajectory(poses, no_of_iterations)
     
     
