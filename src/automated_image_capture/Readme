@@ -3,4 +3,6 @@ Input expectations - The code expects a list of Poses(from geometry_msgs.msg imp
 Run expectations - The code originally begins with a random pose from the list of poses supplied in the input. In case this pose is reachable by the robot, we start our search for the next pose using the Euclidean distance as the metric. The logic behind this move is to calcualte the distance of the current pose to all the possible poses and navigate next based on the least distance measure. The argument here is that the poses that are closer to each other in distance have a higher chance of being reachable by the robot and increases our chances of getting new orientation information. 
 Steps to execute
 1. Download the automated_image_capture folder 
-2. 
+2. Source your folder using the source devel/setup.bash command 
+3. Navigate to the src/automated_image_capture/src/ level and run the main.py file. 
+4. Expected output - In case even one run was successful , you should be able to see bag_{i}.bag files created. These bag files contain the joint angles, pose information and camera images. You should also be able to see some jpg images being stored. This is for your reference as objects of a bag cannot be viewed. 
