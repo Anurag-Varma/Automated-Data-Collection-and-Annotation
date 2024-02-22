@@ -253,19 +253,34 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path):
             transformed_points_updated[i,:] = np.reshape(result, [1,3])'''
 
         # Implementation with homogeneous coordinates: 
-        point_h = np.ones([4,1])
-        for i in range(new_cloud_object_deprojected_points.points.shape[0]):
-            point_h[0,:] = new_cloud_object_deprojected_points.points[i, 0]
-            point_h[1,:] = new_cloud_object_deprojected_points.points[i, 1]
-            point_h[2,:] = new_cloud_object_deprojected_points.points[i, 2]
-            extrinsinc_pos2_inv = la.inv(extrinsinc_pos2)
-            result = np.matmul(extrinsinc_pos2_inv, point_h)
-            transformed_points_updated[i,:] = np.reshape(result[0:3, :], [1,3])
-            transformed_pixel = rsObj.project_point_to_pixel(result[0:3,:],in_params2,in_model2,in_coeff2)
+        # Assuming new_cloud_object_deprojected_points.points is a NumPy array of shape (N, 3)
+        points = new_cloud_object_deprojected_points.points
 
-            if not math.isnan(transformed_pixel[0])  and not math.isnan(transformed_pixel[1]):
-                transformed_coords += str(round(transformed_pixel[0])) + " " + str(round(transformed_pixel[1]))+ "\n"
-            cnt+=1
+        # Convert to homogeneous coordinates by adding a row of ones
+        points_h = np.hstack([points, np.ones((points.shape[0], 1))])
+
+        # Compute the inverse of the extrinsic matrix once, outside the loop
+        extrinsic_pos2_inv = np.linalg.inv(extrinsinc_pos2)
+
+        # Apply the transformation matrix to all points in a single operation
+        transformed_points_h = np.dot(points_h, extrinsic_pos2_inv.T)
+
+        # Drop the homogeneous coordinate, keeping only the x, y, z coordinates
+        transformed_points = transformed_points_h[:, :3]
+
+        # Preallocate transformed_coords string for efficiency
+        transformed_coords = ""
+
+        # Vectorize the projection of points to pixels
+        # Note: Since rsObj.project_point_to_pixel might not be vectorized, a loop might still be needed here
+        # However, this loop will be significantly faster than the original as the transformation is already done
+        for i in range(transformed_points.shape[0]):
+            transformed_pixel = rsObj.project_point_to_pixel(transformed_points[i, :], in_params2, in_model2, in_coeff2)
+            if not math.isnan(transformed_pixel[0]) and not math.isnan(transformed_pixel[1]):
+                transformed_coords += f"{round(transformed_pixel[0])} {round(transformed_pixel[1])}\n"
+
+        # Now `transformed_coords` contains all transformed and projected points in string format
+
 
         f2 = open("transformed_points.txt","w")
         f2.write(transformed_coords)
