@@ -125,10 +125,10 @@ def save_to_file(undo_stack,extrinsics1,extrinsics2,image2,label,rsObj,in_params
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-  
+
 
 # Save the recent mask to a file and also display transformed masks output
-def save_recent_mask_to_file(undo_stack,extrinsics1,extrinsics2,image2,label,rsObj,in_params2,in_model2,in_coeff2):
+def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path):
     print("save most recent mask to file")
 
     masks = undo_stack[-1].mask
@@ -139,12 +139,10 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,extrinsics2,image2,label,rsO
 
     # Call deproject project and transform code 
     extrinsinc_pos1 = genfromtxt(extrinsics1, delimiter=',')
-    extrinsinc_pos2 = genfromtxt(extrinsics2, delimiter=',')
 
     img_mask =  genfromtxt(file_name,delimiter=",")
     result_arr = rsObj.deproject_pixel_to_point(img_mask)
-    transformed_coords = ""
-    cnt = 0
+    
 
     ############### DEPROJECTED POINTS ########################
     # Initializing object to class pointCloud() for visualization purposes:
@@ -200,136 +198,92 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,extrinsics2,image2,label,rsO
     cloud_object_deprojected_points.min_points = 10
     cloud_object_deprojected_points.getObjectPointCloud()
 
+    for trans_cnt in range(2,9):
+        print("New transofrmed Image "+str(trans_cnt))
+        new_cloud_object_deprojected_points = cloud_object_deprojected_points
+        extrinsics2 = data_path+"pose_"+str(trans_cnt)+"/camera_pose.csv"
+        in_params2 = data_path+"pose_"+str(trans_cnt)+"/intrinsic_params.csv"
+        in_model2 = data_path+"pose_"+str(trans_cnt)+"/distortion_model.csv"
+        in_coeff2 = data_path+"pose_"+str(trans_cnt)+"/intrinsic_coeffs.csv"
+        image2 = cv2.imread(data_path+"pose_"+str(trans_cnt)+"/cheezit_"+str(trans_cnt)+".png")
 
-    ############### TRANSFORMING THE POINTS (UPDATED) ###############
-
-    # Extracting the deprojected points which have been transformed in the base reference frame: 
-    cloud_object_deprojected_points.points = np.asarray(cloud_object_deprojected_points.processed_cloud.points)
-
-    print('Shape of the deprojected points: ', cloud_object_deprojected_points.points.shape)
-
-    # Transforming these deprojected points from the base reference frame to the second camera pose:
-    # Initializing object to class pointCloud() for visualization purposes:
-    cloud_object_transformed_points = pointCloud()
-
-    '''Rotation matrix and position vector for the robot base or world reference frame: '''
-    cloud_object_transformed_points.R_base = np.identity(3)
-    cloud_object_transformed_points.p_base = np.zeros([3,1])
-
-    cloud_object_transformed_points.g_base_cam = extrinsinc_pos2
-
-    # Extracting the rotation matrix and position vector: 
-    R_pose_2 = extrinsinc_pos2[0:3, 0:3]
-    R_pose_2_inv = la.inv(R_pose_2)
-    p_pose_2 = np.reshape(extrinsinc_pos2[0:3, 3], [3,1])
-
-    cloud_object_transformed_points.R_base_cam = R_pose_2
-    cloud_object_transformed_points.p_base_cam = p_pose_2
-
-    # transformed_points_updated = []
-    transformed_points_updated = np.zeros([cloud_object_deprojected_points.points.shape[0], cloud_object_deprojected_points.points.shape[1]])
-    
-    # Nonhomogeneous coordinates implementation: 
-    ''' for i in range(cloud_object_deprojected_points.points.shape[0]):
-        point = np.reshape(cloud_object_deprojected_points.points[i, :], [3,1])
-        prod = np.dot(R_pose_2_inv, point)
-        result = np.add(p_pose_2, prod)
-        print('result: ', result)
-        # Appending the points in a single list:
-        # transformed_points_updated.append(result)
-        transformed_points_updated[i,:] = np.reshape(result, [1,3])'''
-
-    # Implementation with homogeneous coordinates: 
-    point_h = np.ones([4,1])
-    for i in range(cloud_object_deprojected_points.points.shape[0]):
-        point_h[0,:] = cloud_object_deprojected_points.points[i, 0]
-        point_h[1,:] = cloud_object_deprojected_points.points[i, 1]
-        point_h[2,:] = cloud_object_deprojected_points.points[i, 2]
-        extrinsinc_pos2_inv = la.inv(extrinsinc_pos2)
-        result = np.matmul(extrinsinc_pos2_inv, point_h)
-        transformed_points_updated[i,:] = np.reshape(result[0:3, :], [1,3])
-        transformed_pixel = rsObj.project_point_to_pixel(result[0:3,:],in_params2,in_model2,in_coeff2)
-
-        if not math.isnan(transformed_pixel[0])  and not math.isnan(transformed_pixel[1]):
-            transformed_coords += str(round(transformed_pixel[0])) + " " + str(round(transformed_pixel[1]))+ "\n"
-        cnt+=1
-
-    # Initializing object to class pointCloud() for visualization purposes:
-    cloud_object_transformed_points = pointCloud()
-
-    print('Shape of the transformed points: ', transformed_points_updated.shape)
-
-    '''Rotation matrix and position vector for the robot base or world reference frame: '''
-    cloud_object_transformed_points.R_base = np.identity(3)
-    cloud_object_transformed_points.p_base = np.zeros([3,1])
-
-    cloud_object_transformed_points.g_base_cam = extrinsinc_pos2
-
-    # Extracting the rotation matrix and position vector: 
-    R_pose_2 = extrinsinc_pos2[0:3, 0:3]
-    p_pose_2 = np.reshape(extrinsinc_pos2[0:3, 3], [3,1])
-
-    cloud_object_transformed_points.R_base_cam = R_pose_2
-    cloud_object_transformed_points.p_base_cam = p_pose_2
-    
-    '''Creating a Open3d PointCloud Object for the cloud corresponding to just the bounding box'''
-    objectCloud = o3d.geometry.PointCloud()
-    objectCloud.points = o3d.utility.Vector3dVector(transformed_points_updated.astype(np.float64))
-    objectCloud.paint_uniform_color([0, 0, 1])
-
-    '''Visualizing just the CheezIt point cloud using open3D:'''
-    o3d.visualization.draw_geometries([objectCloud])
-
-    cloud_object_transformed_points.cloud = objectCloud
-
-    '''Transforming the point cloud in the Panda base reference frame: '''
-    # cloud_object_transformed_points.transformToBase()
-
-    '''Visualizing the downsampled point cloud. '''
-    print('Cloud transformed to base')
-    # o3d.visualization.draw_geometries([cloud_object.cloud])
-
-    '''# Downsample it and inspect the normals'''
-    # cloud_object_transformed_points.cloud = cloud_object_transformed_points.cloud.voxel_down_sample(voxel_size=0.009)
-    
-    '''This needs to commented out when dealing with objects like the spatula and screw driver'''
-    # cloud_object.removePlaneSurface()
-
-    '''# Visualizing the downsampled point cloud. '''
-    print('Plane surface removed!')
-    # o3d.visualization.draw_geometries([cloud_object.cloud])
-
-    '''Specifying parameters for DBSCAN Clustering:
-    Just like the parameters for downsampling even the parameters for DBSCAN Clustering are dependent on the 
-    units used computing and extracting the point cloud data.'''
-    cloud_object_transformed_points.eps = 0.02
-    cloud_object_transformed_points.min_points = 10
-    cloud_object_transformed_points.getObjectPointCloud()
+        transformed_coords = ""
+        cnt = 0
 
 
-    ##########################################################
-    '''PLOTTING AND VISUALIZATION:'''
+        # Call deproject project and transform code 
+        extrinsinc_pos2 = genfromtxt(extrinsics2, delimiter=',')
 
+        ############### TRANSFORMING THE POINTS (UPDATED) ###############
 
+        # Extracting the deprojected points which have been transformed in the base reference frame: 
+        new_cloud_object_deprojected_points.points = np.asarray(new_cloud_object_deprojected_points.processed_cloud.points)
 
+        print('Shape of the deprojected points: ', new_cloud_object_deprojected_points.points.shape)
 
-    ##########################################################
+        # Transforming these deprojected points from the base reference frame to the second camera pose:
+        # Initializing object to class pointCloud() for visualization purposes:
+        cloud_object_transformed_points = pointCloud()
 
-    f2 = open("transformed_points.txt","w")
-    f2.write(transformed_coords)
-    f2.close()
+        '''Rotation matrix and position vector for the robot base or world reference frame: '''
+        cloud_object_transformed_points.R_base = np.identity(3)
+        cloud_object_transformed_points.p_base = np.zeros([3,1])
 
-    image = image2.copy()
-    f = open("transformed_points.txt","r")
-    for line in f:
-        line = line.strip("\n")
-        x, y = line.split(" ")
-        # print(x,y)
-        cv2.circle(image, (int(x), int(y)), 3, (255, 0, 0), 3) 
-    cv2.imshow('Transformed Points', image)
-    f.close()
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        cloud_object_transformed_points.g_base_cam = extrinsinc_pos2
+
+        # Extracting the rotation matrix and position vector: 
+        R_pose_2 = extrinsinc_pos2[0:3, 0:3]
+        R_pose_2_inv = la.inv(R_pose_2)
+        p_pose_2 = np.reshape(extrinsinc_pos2[0:3, 3], [3,1])
+
+        cloud_object_transformed_points.R_base_cam = R_pose_2
+        cloud_object_transformed_points.p_base_cam = p_pose_2
+
+        # transformed_points_updated = []
+        transformed_points_updated = np.zeros([new_cloud_object_deprojected_points.points.shape[0], new_cloud_object_deprojected_points.points.shape[1]])
+        
+        # Nonhomogeneous coordinates implementation: 
+        ''' for i in range(new_cloud_object_deprojected_points.points.shape[0]):
+            point = np.reshape(new_cloud_object_deprojected_points.points[i, :], [3,1])
+            prod = np.dot(R_pose_2_inv, point)
+            result = np.add(p_pose_2, prod)
+            print('result: ', result)
+            # Appending the points in a single list:
+            # transformed_points_updated.append(result)
+            transformed_points_updated[i,:] = np.reshape(result, [1,3])'''
+
+        # Implementation with homogeneous coordinates: 
+        point_h = np.ones([4,1])
+        for i in range(new_cloud_object_deprojected_points.points.shape[0]):
+            point_h[0,:] = new_cloud_object_deprojected_points.points[i, 0]
+            point_h[1,:] = new_cloud_object_deprojected_points.points[i, 1]
+            point_h[2,:] = new_cloud_object_deprojected_points.points[i, 2]
+            extrinsinc_pos2_inv = la.inv(extrinsinc_pos2)
+            result = np.matmul(extrinsinc_pos2_inv, point_h)
+            transformed_points_updated[i,:] = np.reshape(result[0:3, :], [1,3])
+            transformed_pixel = rsObj.project_point_to_pixel(result[0:3,:],in_params2,in_model2,in_coeff2)
+
+            if not math.isnan(transformed_pixel[0])  and not math.isnan(transformed_pixel[1]):
+                transformed_coords += str(round(transformed_pixel[0])) + " " + str(round(transformed_pixel[1]))+ "\n"
+            cnt+=1
+
+        f2 = open("transformed_points.txt","w")
+        f2.write(transformed_coords)
+        f2.close()
+
+        image = image2.copy()
+        f = open("transformed_points.txt","r")
+        for line in f:
+            line = line.strip("\n")
+            x, y = line.split(" ")
+            # print(x,y)
+            cv2.circle(image, (int(x), int(y)), 3, (255, 0, 0), 3) 
+
+        cv2.imwrite(data_path+"Transformed image "+str(trans_cnt)+".png",image)
+        # cv2.imshow('Transformed Points', image)
+        # f.close()
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
 def subtract_event(undo_stack, img, predictor,label):
     print("subtract")
@@ -456,23 +410,42 @@ def click_event(eventorigin, undo_stack, predictor,img,label):
      
 
 def main(args):
-    extrinsics1 = args.e1
-    extrinsics2 = args.e2
-    image2 = cv2.imread(args.i2)
-    in_params = args.inparams
-    in_model = args.inmodel
-    in_coeff = args.incoeff
-    in_params2= args.inparams2
-    in_model2 = args.inmodel2
-    in_coeff2 = args.incoeff2
-    depImg = args.dimg
-    depArr = args.darr
+
+    # parser.add_argument("-g", "--gpu", type=str, default='0', help="GPU to use")
+    # parser.add_argument("--img", type=str, default="demo_imgs/image_1_pixel_transform.png", help="image")
+    # parser.add_argument("--i2", type=str, default="demo_imgs/image_2_pixel_transform.png", help="image")
+    # parser.add_argument("--e1", type=str, default="Data/trial_1/screwdriver/camera_pose.csv", help="camera pose 1")
+    # parser.add_argument("--e2", type=str, default="Data/trial_2/screwdriver/camera_pose.csv", help="camera pose 2")
+    # parser.add_argument("--inparams", type=str, default="Data/trial_1/screwdriver/intrinsic_params_1.csv", help="intrinsic params for pose 1")
+    # parser.add_argument("--incoeff", type=str, default="Data/trial_1/screwdriver/intrinsic_coeffs_1.csv", help="intrinsic coeff for pose 1")
+    # parser.add_argument("--inmodel", type=str, default="Data/trial_1/screwdriver/distortion_model_1.csv", help="intrinsic model for pose 1")
+    # parser.add_argument("--inparams2", type=str, default="Data/trial_2/screwdriver/intrinsic_params_2.csv", help="intrinsic params for pose 2")
+    # parser.add_argument("--incoeff2", type=str, default="Data/trial_2/screwdriver/intrinsic_coeffs_2.csv", help="intrinsic coeff for pose 2")
+    # parser.add_argument("--inmodel2", type=str, default="Data/trial_2/screwdriver/distortion_model_2.csv", help="intrinsic model for pose 2")
+    # parser.add_argument("--dimg", type=str, default="Data/trial_1/screwdriver/depth_image_1_pixel_transform.png", help="depth image")
+    # parser.add_argument("--darr", type=str, default="Data/trial_1/screwdriver/depth_array_1.csv", help="depth array")
+    
+
+
+    data_path="Spring_24_Data/"
+
+
+
+    extrinsics1 = data_path+"pose_1/"+"camera_pose.csv"
+    in_params = data_path+"pose_1/"+"intrinsic_params.csv"
+    in_model = data_path+"pose_1/"+"distortion_model.csv"
+    in_coeff = data_path+"pose_1/"+"intrinsic_coeffs.csv"
+    depImg = data_path+"pose_1/"+"depth_image_pixel_transform.png"
+    depArr = data_path+"pose_1/"+"depth_array.csv"
+    image_path = data_path+"pose_1/"+"cheezit_1.png"
+
+
 
     rsObj = RealsenseSubscriber(in_params,in_model,in_coeff,depArr,depImg)
 
     device = "cpu"
-    image_path = args.img  
- 
+
+
     #1. Prepare Image For Inference 
     print("Preparing Model + Images")
     pil_img = Image.open(image_path) 
@@ -583,7 +556,7 @@ def main(args):
     font= ('Helvetica 15 bold'),
     image=save_recent_button_image,
     compound= "left",
-    command=lambda:  save_recent_mask_to_file(undo_stack,extrinsics1,extrinsics2,image2,label,rsObj,in_params2,in_model2,in_coeff2)
+    command=lambda:  save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path)
 ).grid(row=0,column=6,sticky='nesw')
     
     exit_button_image = ImageTk.PhotoImage(Image.open('button_imgs/icons8-close-window-50.png'))
@@ -632,18 +605,18 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-g", "--gpu", type=str, default='0', help="GPU to use")
-    parser.add_argument("--img", type=str, default="demo_imgs/image_1_pixel_transform.png", help="image")
-    parser.add_argument("--i2", type=str, default="demo_imgs/image_2_pixel_transform.png", help="image")
-    parser.add_argument("--e1", type=str, default="Data/trial_1/screwdriver/camera_pose.csv", help="camera pose 1")
-    parser.add_argument("--e2", type=str, default="Data/trial_2/screwdriver/camera_pose.csv", help="camera pose 2")
-    parser.add_argument("--inparams", type=str, default="Data/trial_1/screwdriver/intrinsic_params_1.csv", help="intrinsic params for pose 1")
-    parser.add_argument("--incoeff", type=str, default="Data/trial_1/screwdriver/intrinsic_coeffs_1.csv", help="intrinsic coeff for pose 1")
-    parser.add_argument("--inmodel", type=str, default="Data/trial_1/screwdriver/distortion_model_1.csv", help="intrinsic model for pose 1")
-    parser.add_argument("--inparams2", type=str, default="Data/trial_2/screwdriver/intrinsic_params_2.csv", help="intrinsic params for pose 2")
-    parser.add_argument("--incoeff2", type=str, default="Data/trial_2/screwdriver/intrinsic_coeffs_2.csv", help="intrinsic coeff for pose 2")
-    parser.add_argument("--inmodel2", type=str, default="Data/trial_2/screwdriver/distortion_model_2.csv", help="intrinsic model for pose 2")
-    parser.add_argument("--dimg", type=str, default="Data/trial_1/screwdriver/depth_image_1_pixel_transform.png", help="depth image")
-    parser.add_argument("--darr", type=str, default="Data/trial_1/screwdriver/depth_array_1.csv", help="depth array")
+    # parser.add_argument("-g", "--gpu", type=str, default='0', help="GPU to use")
+    # parser.add_argument("--img", type=str, default="demo_imgs/image_1_pixel_transform.png", help="image")
+    # parser.add_argument("--i2", type=str, default="demo_imgs/image_2_pixel_transform.png", help="image")
+    # parser.add_argument("--e1", type=str, default="Data/trial_1/screwdriver/camera_pose.csv", help="camera pose 1")
+    # parser.add_argument("--e2", type=str, default="Data/trial_2/screwdriver/camera_pose.csv", help="camera pose 2")
+    # parser.add_argument("--inparams", type=str, default="Data/trial_1/screwdriver/intrinsic_params_1.csv", help="intrinsic params for pose 1")
+    # parser.add_argument("--incoeff", type=str, default="Data/trial_1/screwdriver/intrinsic_coeffs_1.csv", help="intrinsic coeff for pose 1")
+    # parser.add_argument("--inmodel", type=str, default="Data/trial_1/screwdriver/distortion_model_1.csv", help="intrinsic model for pose 1")
+    # parser.add_argument("--inparams2", type=str, default="Data/trial_2/screwdriver/intrinsic_params_2.csv", help="intrinsic params for pose 2")
+    # parser.add_argument("--incoeff2", type=str, default="Data/trial_2/screwdriver/intrinsic_coeffs_2.csv", help="intrinsic coeff for pose 2")
+    # parser.add_argument("--inmodel2", type=str, default="Data/trial_2/screwdriver/distortion_model_2.csv", help="intrinsic model for pose 2")
+    # parser.add_argument("--dimg", type=str, default="Data/trial_1/screwdriver/depth_image_1_pixel_transform.png", help="depth image")
+    # parser.add_argument("--darr", type=str, default="Data/trial_1/screwdriver/depth_array_1.csv", help="depth array")
     args = parser.parse_args()
     main(args)
