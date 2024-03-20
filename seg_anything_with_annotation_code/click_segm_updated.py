@@ -181,77 +181,84 @@ def select_points(transformed_coordinates_array):
 def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path,predictor):
     print("save most recent mask to file")
 
-    masks = undo_stack[-1].mask
     file_name = filedialog.asksaveasfilename(defaultextension=".csv",
-                                            filetypes=[("csv file", ".csv")],
-                                            )
-    savetxt(file_name, masks, delimiter=',')
-
-    # Call deproject project and transform code 
-    extrinsinc_pos1 = genfromtxt(extrinsics1, delimiter=',')
-
-    img_mask =  genfromtxt(file_name,delimiter=",")
-    result_arr = rsObj.deproject_pixel_to_point(img_mask)
-    
-
-    ############### DEPROJECTED POINTS ########################
-    # Initializing object to class pointCloud() for visualization purposes:
-    cloud_object_deprojected_points = pointCloud()
-
-    '''Rotation matrix and position vector for the robot base or world reference frame: '''
-    cloud_object_deprojected_points.R_base = np.identity(3)
-    cloud_object_deprojected_points.p_base = np.zeros([3,1])
-
-    cloud_object_deprojected_points.g_base_cam = extrinsinc_pos1
-
-    # Extracting the rotation matrix and position vector: 
-    R_pose_1 = extrinsinc_pos1[0:3, 0:3]
-    p_pose_1 = np.reshape(extrinsinc_pos1[0:3, 3], [3,1])
-
-    cloud_object_deprojected_points.R_base_cam = R_pose_1
-    cloud_object_deprojected_points.p_base_cam = p_pose_1
-
-    num_points = len(result_arr)
-    result_arr = np.reshape(np.asarray(result_arr), [num_points, 3])
-
-    '''Creating a Open3d PointCloud Object for the cloud corresponding to just the bounding box'''
-    objectCloud = o3d.geometry.PointCloud()
-    objectCloud.points = o3d.utility.Vector3dVector(result_arr.astype(np.float64))
-    objectCloud.paint_uniform_color([0, 0, 1])
-
-    '''Visualizing just the CheezIt point cloud using open3D:'''
-    # o3d.visualization.draw_geometries([objectCloud])
-
-    cloud_object_deprojected_points.cloud = objectCloud
-
-    '''Transforming the point cloud in the Panda base reference frame: '''
-    cloud_object_deprojected_points.transformToBase()
-
-    '''Visualizing the downsampled point cloud. '''
-    print('Cloud transformed to base')
-    # o3d.visualization.draw_geometries([cloud_object.cloud])
-
-    '''# Downsample it and inspect the normals'''
-    # cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.voxel_down_sample(voxel_size=0.05)
-    cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.uniform_down_sample(every_k_points=100)
-    
-    
-    '''This needs to commented out when dealing with objects like the spatula and screw driver'''
-    # cloud_object.removePlaneSurface()
-
-    '''# Visualizing the downsampled point cloud. '''
-    print('Plane surface removed!')
-    # o3d.visualization.draw_geometries([cloud_object.cloud])
-
-    '''Specifying parameters for DBSCAN Clustering:
-    Just like the parameters for downsampling even the parameters for DBSCAN Clustering are dependent on the 
-    units used computing and extracting the point cloud data.'''
-    cloud_object_deprojected_points.eps = 0.02
-    cloud_object_deprojected_points.min_points = 10
-    cloud_object_deprojected_points.getObjectPointCloud()
+                                                filetypes=[("csv file", ".csv")],
+                                                )
+    masks = undo_stack[-1].mask
 
 
     for trans_cnt in range(2,9):
+
+        extrinsics1 = data_path+"pose_"+str(trans_cnt-1)+"/"+"camera_pose.csv"
+
+        
+        savetxt(file_name, masks, delimiter=',')
+
+        # Call deproject project and transform code 
+        extrinsinc_pos1 = genfromtxt(extrinsics1, delimiter=',')
+
+        img_mask =  genfromtxt(file_name,delimiter=",")
+        result_arr = rsObj.deproject_pixel_to_point(img_mask)
+        
+
+        ############### DEPROJECTED POINTS ########################
+        # Initializing object to class pointCloud() for visualization purposes:
+        cloud_object_deprojected_points = pointCloud()
+
+        '''Rotation matrix and position vector for the robot base or world reference frame: '''
+        cloud_object_deprojected_points.R_base = np.identity(3)
+        cloud_object_deprojected_points.p_base = np.zeros([3,1])
+
+        cloud_object_deprojected_points.g_base_cam = extrinsinc_pos1
+
+        # Extracting the rotation matrix and position vector: 
+        R_pose_1 = extrinsinc_pos1[0:3, 0:3]
+        p_pose_1 = np.reshape(extrinsinc_pos1[0:3, 3], [3,1])
+
+        cloud_object_deprojected_points.R_base_cam = R_pose_1
+        cloud_object_deprojected_points.p_base_cam = p_pose_1
+
+        num_points = len(result_arr)
+        result_arr = np.reshape(np.asarray(result_arr), [num_points, 3])
+
+        '''Creating a Open3d PointCloud Object for the cloud corresponding to just the bounding box'''
+        objectCloud = o3d.geometry.PointCloud()
+        objectCloud.points = o3d.utility.Vector3dVector(result_arr.astype(np.float64))
+        objectCloud.paint_uniform_color([0, 0, 1])
+
+        '''Visualizing just the CheezIt point cloud using open3D:'''
+        # o3d.visualization.draw_geometries([objectCloud])
+
+        cloud_object_deprojected_points.cloud = objectCloud
+
+        '''Transforming the point cloud in the Panda base reference frame: '''
+        cloud_object_deprojected_points.transformToBase()
+
+        '''Visualizing the downsampled point cloud. '''
+        print('Cloud transformed to base')
+        # o3d.visualization.draw_geometries([cloud_object.cloud])
+
+        '''# Downsample it and inspect the normals'''
+        # cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.voxel_down_sample(voxel_size=0.1)
+        cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.uniform_down_sample(every_k_points=100)
+        
+        
+        '''This needs to commented out when dealing with objects like the spatula and screw driver'''
+        # cloud_object.removePlaneSurface()
+
+        '''# Visualizing the downsampled point cloud. '''
+        print('Plane surface removed!')
+        # o3d.visualization.draw_geometries([cloud_object.cloud])
+
+        '''Specifying parameters for DBSCAN Clustering:
+        Just like the parameters for downsampling even the parameters for DBSCAN Clustering are dependent on the 
+        units used computing and extracting the point cloud data.'''
+        cloud_object_deprojected_points.eps = 0.02
+        cloud_object_deprojected_points.min_points = 10
+        cloud_object_deprojected_points.getObjectPointCloud()
+
+
+        
         
         print("New transofrmed Image "+str(trans_cnt))
         new_cloud_object_deprojected_points = cloud_object_deprojected_points
@@ -331,7 +338,7 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path,predic
         # Vectorize the projection of points to pixels
         # Note: Since rsObj.project_point_to_pixel might not be vectorized, a loop might still be needed here
         # However, this loop will be significantly faster than the original as the transformation is already done
-# Initialize a list to store transformed coordinates
+        # Initialize a list to store transformed coordinates
         transformed_coords_list = []
 
         for i in range(transformed_points.shape[0]):
@@ -378,6 +385,8 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path,predic
         temp =  MaskGenerator(predictor)
         temp.predictByArray(selected_points_array)
         tranformed_mask = temp.mask
+
+        masks=tranformed_mask
 
         img_with_mask = show_mask(tranformed_mask, image, False, 0.6)
         # cv2.imwrite(data_path+"Transformed image "+str(trans_cnt)+".png",img_with_mask)
