@@ -22,6 +22,13 @@ class MaskGenerator:
         masks, scores, logits = self.predictor.predict(point_labels=labels, point_coords=np.array([[x,y]]), multimask_output=True)
         self.mask  = masks[np.argmax(scores)].astype("uint8")
 
+    def predictByArray(self, points) -> None:
+        print(points)
+        labels = np.array([1]*len(points))
+        print(labels)
+        masks, scores, logits = self.predictor.predict(point_labels=labels, point_coords=points, multimask_output=True)
+        self.mask  = masks[np.argmax(scores)].astype("uint8")
+
     def show_mask(self, mask, img, random_color, opacity):
         if random_color:
             color = np.concatenate([np.random.random(3)*255], axis=0)

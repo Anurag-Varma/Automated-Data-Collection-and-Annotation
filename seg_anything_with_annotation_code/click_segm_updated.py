@@ -78,6 +78,8 @@ def print_all_masks(undo_stack, img,label):
     label.imgtk = imgtk
     label.configure(image = imgtk)
    
+
+
 # Save the union of all the mask to a file and also display transformed masks output
 def save_to_file(undo_stack,extrinsics1,extrinsics2,image2,label,rsObj,in_params2,in_model2,in_coeff2):
     print("save to file")
@@ -125,10 +127,58 @@ def save_to_file(undo_stack,extrinsics1,extrinsics2,image2,label,rsObj,in_params
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+import numpy as np
 
+def calculate_center(points):
+    # Calculate centroid or center of points
+    center_x = np.mean(points[:, 0])
+    center_y = np.mean(points[:, 1])
+    return center_x, center_y
+
+def select_points(transformed_coordinates_array):
+    # Calculate center of object's shape
+    center_x, center_y = calculate_center(transformed_coordinates_array)
+
+    # Calculate distances from center for each point
+    distances = np.sqrt((transformed_coordinates_array[:, 0] - center_x)**2 + (transformed_coordinates_array[:, 1] - center_y)**2)
+
+    # Sort points by distance from center
+    sorted_indices = np.argsort(distances)
+
+    # Define distance ranges
+    num_points = len(distances)
+    ranges = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]  # Distance ranges for selection
+
+    # Initialize list to store selected indices
+    selected_indices = []
+
+    # Add centroid index
+    centroid_index = sorted_indices[0]
+    selected_indices.append(centroid_index)
+
+    # Add centroid points (one or two)
+    selected_indices.extend(np.random.choice(sorted_indices[1:int(0.2*num_points)], min(2, int(0.2*num_points)-1), replace=False))
+
+    # Select one to two points at each distance range
+    for i in range(len(ranges) - 1):
+        range_start_index = int(num_points * ranges[i])
+        range_end_index = int(num_points * ranges[i+1])
+        range_indices = sorted_indices[range_start_index:range_end_index]
+        num_points_range = len(range_indices)
+
+        # If there are points in this range
+        if num_points_range > 0:
+            # Randomly select one or two points
+            num_selected_points = min(2, num_points_range)
+            selected_indices.extend(np.random.choice(range_indices, num_selected_points, replace=False))
+
+    # Extract selected points
+    selected_points = transformed_coordinates_array[selected_indices]
+
+    return selected_points
 
 # Save the recent mask to a file and also display transformed masks output
-def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path):
+def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path,predictor):
     print("save most recent mask to file")
 
     masks = undo_stack[-1].mask
@@ -182,7 +232,9 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path):
     # o3d.visualization.draw_geometries([cloud_object.cloud])
 
     '''# Downsample it and inspect the normals'''
-    # cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.voxel_down_sample(voxel_size=0.009)
+    # cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.voxel_down_sample(voxel_size=0.05)
+    cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.uniform_down_sample(every_k_points=100)
+    
     
     '''This needs to commented out when dealing with objects like the spatula and screw driver'''
     # cloud_object.removePlaneSurface()
@@ -198,7 +250,9 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path):
     cloud_object_deprojected_points.min_points = 10
     cloud_object_deprojected_points.getObjectPointCloud()
 
+
     for trans_cnt in range(2,9):
+        
         print("New transofrmed Image "+str(trans_cnt))
         new_cloud_object_deprojected_points = cloud_object_deprojected_points
         extrinsics2 = data_path+"pose_"+str(trans_cnt)+"/camera_pose.csv"
@@ -217,7 +271,10 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path):
         ############### TRANSFORMING THE POINTS (UPDATED) ###############
 
         # Extracting the deprojected points which have been transformed in the base reference frame: 
+        # new_cloud_object_deprojected_points.cloud =  new_cloud_object_deprojected_points.cloud.voxel_down_sample(voxel_size=0.05)
+        
         new_cloud_object_deprojected_points.points = np.asarray(new_cloud_object_deprojected_points.processed_cloud.points)
+
 
         print('Shape of the deprojected points: ', new_cloud_object_deprojected_points.points.shape)
 
@@ -274,31 +331,73 @@ def save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path):
         # Vectorize the projection of points to pixels
         # Note: Since rsObj.project_point_to_pixel might not be vectorized, a loop might still be needed here
         # However, this loop will be significantly faster than the original as the transformation is already done
+# Initialize a list to store transformed coordinates
+        transformed_coords_list = []
+
         for i in range(transformed_points.shape[0]):
             transformed_pixel = rsObj.project_point_to_pixel(transformed_points[i, :], in_params2, in_model2, in_coeff2)
             if not math.isnan(transformed_pixel[0]) and not math.isnan(transformed_pixel[1]):
-                transformed_coords += f"{round(transformed_pixel[0])} {round(transformed_pixel[1])}\n"
+                transformed_x = round(transformed_pixel[0])
+                transformed_y = round(transformed_pixel[1])
+                transformed_coords_list.append([transformed_x, transformed_y])
+                transformed_coords += f"{transformed_x} {transformed_y}\n"
+        # print(transformed_coords_list)
+        # Convert the list to a NumPy array
+        transformed_coordinates_array = np.array(transformed_coords_list)
+        # print(transformed_coordinates_array)
+
+        # Assume transformed_coordinates_array is a numpy array of shape (N, 2)
+        N = transformed_coordinates_array.shape[0]
+
+        selected_points = transformed_coordinates_array
+        # # Initialize an empty list to store selected points
+        # selected_points = []
+
+        # # If there are less than 10 points, select all points
+        # if N <= 10:
+        #     selected_points = transformed_coordinates_array.tolist()
+
+        # else:
+        #     # Select border points
+        #     border_indices = [0, N // 4, N // 2, 3 * N // 4]
+        #     selected_points.extend(transformed_coordinates_array[border_indices])
+
+        #     # Select points in the middle
+        #     step = (N - 1) // (num_middle_points - 1)
+        #     middle_indices = [i * step for i in range(num_middle_points)]
+        #     for index in middle_indices:
+        #         if index not in border_indices:  # Avoid duplicate points
+        #             selected_points.append(transformed_coordinates_array[index])
+
+        # # Convert the selected points list back to a numpy array
+        selected_points_array = np.array(selected_points)
 
         # Now `transformed_coords` contains all transformed and projected points in string format
-
-
-        f2 = open("transformed_points.txt","w")
-        f2.write(transformed_coords)
-        f2.close()
-
         image = image2.copy()
-        f = open("transformed_points.txt","r")
-        for line in f:
-            line = line.strip("\n")
-            x, y = line.split(" ")
-            # print(x,y)
-            cv2.circle(image, (int(x), int(y)), 3, (255, 0, 0), 3) 
+        predictor.set_image(np.array(image))
+        temp =  MaskGenerator(predictor)
+        temp.predictByArray(selected_points_array)
+        tranformed_mask = temp.mask
 
-        cv2.imwrite(data_path+"Transformed image "+str(trans_cnt)+".png",image)
-        # cv2.imshow('Transformed Points', image)
-        # f.close()
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        img_with_mask = show_mask(tranformed_mask, image, False, 0.6)
+        # cv2.imwrite(data_path+"Transformed image "+str(trans_cnt)+".png",img_with_mask)
+
+        image_with_overlay = img_with_mask
+
+        color = (0, 0, 0)   # Green for middle points
+
+        # Draw circles at selected points
+        for i, (x, y) in enumerate(selected_points_array):
+
+            # Draw circle with radius 3
+            cv2.circle(image_with_overlay, (int(x), int(y)), 3, color, -1)  # -1 indicates filled circle
+
+        # Save the image with points and mask overlay
+        cv2.imwrite(data_path+"Transformed image "+str(trans_cnt)+".png",image_with_overlay)
+        # cv2.imwrite(data_path + "Selected_points_in_image" + str(trans_cnt) + ".png", image_with_overlay)
+
+        # Copy the original image
+    
 
 def subtract_event(undo_stack, img, predictor,label):
     print("subtract")
@@ -571,7 +670,7 @@ def main(args):
     font= ('Helvetica 15 bold'),
     image=save_recent_button_image,
     compound= "left",
-    command=lambda:  save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path)
+    command=lambda:  save_recent_mask_to_file(undo_stack,extrinsics1,label,rsObj,data_path, predictor)
 ).grid(row=0,column=6,sticky='nesw')
     
     exit_button_image = ImageTk.PhotoImage(Image.open('button_imgs/icons8-close-window-50.png'))
