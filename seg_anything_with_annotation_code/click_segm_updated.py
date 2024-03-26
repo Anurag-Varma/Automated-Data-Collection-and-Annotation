@@ -127,8 +127,6 @@ def save_to_file(undo_stack,extrinsics1,extrinsics2,image2,label,rsObj,in_params
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-import numpy as np
-
 def calculate_center(points):
     # Calculate centroid or center of points
     center_x = np.mean(points[:, 0])
