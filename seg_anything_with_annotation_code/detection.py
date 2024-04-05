@@ -61,7 +61,8 @@ class RealsenseSubscriber:
                     depth = self.depthArray[i, j]
                     coord = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [j,i], depth)
                     self.resultSemanticSegmentation.append(coord)
-                    
+        if(self.resultSemanticSegmentation == []):
+            return []
         self.MostRecentDeprojectedPoint = self.resultSemanticSegmentation[0]
         return self.resultSemanticSegmentation
 

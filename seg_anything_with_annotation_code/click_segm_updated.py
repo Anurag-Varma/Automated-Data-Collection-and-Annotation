@@ -84,51 +84,266 @@ def clear_stacks(undo_mask_stack, redo_mask_stack,predictor,img,label):
 
 
 # Save the union of all the mask to a file and also display transformed masks output
-def save_all_masks_to_file_and_transform(undo_mask_stack,extrinsics1,extrinsics2,image2,label,rsObj,in_params2,in_model2,in_coeff2):
-    print("Save to file")
-
-    masks = undo_mask_stack[1].mask
-
-    for i in range(2,len(undo_mask_stack)):
-        masks += undo_mask_stack[i].mask
+def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui_pil_img):
 
     file_name = filedialog.asksaveasfilename(defaultextension=".csv",
-                                            filetypes=[("csv file", ".csv")],
-                                            )
-    savetxt(file_name, masks, delimiter=',')
-   
-    # Call deproject project and transform code 
-    extrinsinc_pos1 = genfromtxt(extrinsics1, delimiter=',')
-    extrinsinc_pos2 = genfromtxt(extrinsics2, delimiter=',')
+                                                filetypes=[("csv file", ".csv")],
+       
+                                             )
+    # print(undo_mask_stack)
+    # print("no of masks",len(undo_mask_stack))
+    # for point in undo_mask_stack:
+    #     print(point.x,point.y)
+    # masks = undo_mask_stack[-1].mask
+    # print(masks)
+    # print("no of masks",len(masks))
+    undo_mask_stack = undo_mask_stack[1:]
+    # Iterate from 2nd folder to 8th folder from Spring_24_Data
+    previous_masks = []
+    for obj in undo_mask_stack:
+        previous_masks.append(obj.mask)
 
-    img_mask =  genfromtxt(file_name,delimiter=",")
-    result_arr = rsObj.deproject_pixel_to_point(img_mask)
-    transformed_coords = ""
-    cnt = 0
+    for trans_cnt in range(2,9):
 
-    for pixel_coord in result_arr:
-        point = rsObj.transform_point(extrinsinc_pos1,extrinsinc_pos2,pixel_coord)
-        transformed_pixel = rsObj.project_point_to_pixel(point,in_params2,in_model2,in_coeff2)
-    
-        if not math.isnan(transformed_pixel[0])  and not math.isnan(transformed_pixel[1]):
-            transformed_coords += str(round(transformed_pixel[0])) + " " + str(round(transformed_pixel[1]))+ "\n"
-        cnt+=1
-        
-    f2 = open("transformed_points.txt","w")
-    f2.write(transformed_coords)
-    f2.close()
+        # Get the following files and assume they are related to 1st image information
+        extrinsics1 = data_path+"pose_"+str(trans_cnt-1)+"/"+"camera_pose.csv"
+        in_params = data_path+"pose_"+str(trans_cnt-1)+"/"+"intrinsic_params.csv"
+        in_model = data_path+"pose_"+str(trans_cnt-1)+"/"+"distortion_model.csv"
+        in_coeff = data_path+"pose_"+str(trans_cnt-1)+"/"+"intrinsic_coeffs.csv"
+        depImg = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_image_pixel_transform.png"
+        depArr = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_array.csv"
+        image_path = cv2.imread(data_path+"pose_"+str(trans_cnt-1)+"/cheezit_"+str(trans_cnt-1)+".png")
+        image2 = cv2.imread(data_path+"pose_"+str(trans_cnt)+"/cheezit_"+str(trans_cnt)+".png")
+        transformed_masks = []
+        boxes = []
+        centroids = []
 
-    image = image2.copy()
-    f = open("transformed_points.txt","r")
-    for line in f:
-        line = line.strip("\n")
-        x, y = line.split(" ")
-        # print(x,y)
-        cv2.circle(image, (int(x), int(y)), 3, (255, 0, 0), 3) 
-    cv2.imshow('Transformed Points', image)
-    f.close()
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        # Iterate through each mask in the stack
+        for mask_index, mask in enumerate(previous_masks):
+
+            print("save most recent mask to file")
+
+            rsObj = RealsenseSubscriber(in_params,in_model,in_coeff,depArr,depImg)
+
+            savetxt(file_name, mask, delimiter=',')
+
+            # Call deproject project and transform code 
+            extrinsinc_pos1 = genfromtxt(extrinsics1, delimiter=',')
+
+            img_mask =  genfromtxt(file_name,delimiter=",")
+            result_arr = rsObj.deproject_pixel_to_point(img_mask)
+            print(len(result_arr))
+            if(len(result_arr) <= 10):
+                print("less points 0")
+                continue
+            ############### DEPROJECTED POINTS ########################
+            # Initializing object to class pointCloud() for visualization purposes:
+            cloud_object_deprojected_points = pointCloud()
+
+            '''Rotation matrix and position vector for the robot base or world reference frame: '''
+            cloud_object_deprojected_points.R_base = np.identity(3)
+            cloud_object_deprojected_points.p_base = np.zeros([3,1])
+
+            cloud_object_deprojected_points.g_base_cam = extrinsinc_pos1
+
+            # Extracting the rotation matrix and position vector: 
+            R_pose_1 = extrinsinc_pos1[0:3, 0:3]
+            p_pose_1 = np.reshape(extrinsinc_pos1[0:3, 3], [3,1])
+
+            cloud_object_deprojected_points.R_base_cam = R_pose_1
+            cloud_object_deprojected_points.p_base_cam = p_pose_1
+
+            num_points = len(result_arr)
+            result_arr = np.reshape(np.asarray(result_arr), [num_points, 3])
+
+            '''Creating a Open3d PointCloud Object for the cloud corresponding to just the bounding box'''
+            objectCloud = o3d.geometry.PointCloud()
+            objectCloud.points = o3d.utility.Vector3dVector(result_arr.astype(np.float64))
+            objectCloud.paint_uniform_color([0, 0, 1])
+
+            '''Visualizing just the CheezIt point cloud using open3D:'''
+            #o3d.visualization.draw_geometries([objectCloud])
+
+            cloud_object_deprojected_points.cloud = objectCloud
+
+            '''Transforming the point cloud in the Panda base reference frame: '''
+            cloud_object_deprojected_points.transformToBase()
+
+            '''Visualizing the downsampled point cloud. '''
+            print('Cloud transformed to base')
+            #o3d.visualization.draw_geometries([cloud_object_deprojected_points.cloud])
+
+            '''# Downsample it and inspect the normals'''
+            cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.voxel_down_sample(voxel_size=0.009)
+            #cloud_object_deprojected_points.cloud = cloud_object_deprojected_points.cloud.uniform_down_sample(every_k_points=100)
+
+            if len(cloud_object_deprojected_points.cloud.points) < 40:
+                print("less number of points")
+                continue
+
+            '''This needs to commented out when dealing with objects like the spatula and screw driver'''
+            cloud_object_deprojected_points.removePlaneSurface()
+
+            '''# Visualizing the downsampled point cloud. '''
+            print('Plane surface removed!')
+            #o3d.visualization.draw_geometries([cloud_object_deprojected_points.cloud])
+
+            '''Specifying parameters for DBSCAN Clustering:
+            Just like the parameters for downsampling even the parameters for DBSCAN Clustering are dependent on the 
+            units used computing and extracting the point cloud data.'''
+            cloud_object_deprojected_points.eps = 0.02
+            cloud_object_deprojected_points.min_points = 10
+            cloud_object_deprojected_points.getObjectPointCloud()
+
+
+
+
+            # Get the following files and assume they are related to 2nd image information
+            print("New transofrmed Image "+str(trans_cnt))
+            new_cloud_object_deprojected_points = cloud_object_deprojected_points
+            extrinsics2 = data_path+"pose_"+str(trans_cnt)+"/camera_pose.csv"
+            in_params2 = data_path+"pose_"+str(trans_cnt)+"/intrinsic_params.csv"
+            in_model2 = data_path+"pose_"+str(trans_cnt)+"/distortion_model.csv"
+            in_coeff2 = data_path+"pose_"+str(trans_cnt)+"/intrinsic_coeffs.csv"
+
+            transformed_coords = ""
+            cnt = 0
+
+
+            # Call deproject project and transform code 
+            extrinsinc_pos2 = genfromtxt(extrinsics2, delimiter=',')
+
+            ############### TRANSFORMING THE POINTS (UPDATED) ###############
+
+            # Extracting the deprojected points which have been transformed in the base reference frame: 
+            new_cloud_object_deprojected_points.points = np.asarray(new_cloud_object_deprojected_points.processed_cloud.points)
+
+
+            print('Shape of the deprojected points: ', new_cloud_object_deprojected_points.points.shape)
+
+            # Transforming these deprojected points from the base reference frame to the second camera pose:
+            # Initializing object to class pointCloud() for visualization purposes:
+            cloud_object_transformed_points = pointCloud()
+
+            '''Rotation matrix and position vector for the robot base or world reference frame: '''
+            cloud_object_transformed_points.R_base = np.identity(3)
+            cloud_object_transformed_points.p_base = np.zeros([3,1])
+
+            cloud_object_transformed_points.g_base_cam = extrinsinc_pos2
+
+            # Extracting the rotation matrix and position vector: 
+            R_pose_2 = extrinsinc_pos2[0:3, 0:3]
+            R_pose_2_inv = la.inv(R_pose_2)
+            p_pose_2 = np.reshape(extrinsinc_pos2[0:3, 3], [3,1])
+
+            cloud_object_transformed_points.R_base_cam = R_pose_2
+            cloud_object_transformed_points.p_base_cam = p_pose_2
+
+            # transformed_points_updated = []
+            transformed_points_updated = np.zeros([new_cloud_object_deprojected_points.points.shape[0], new_cloud_object_deprojected_points.points.shape[1]])
+
+            # Implementation with homogeneous coordinates: 
+            point_h = np.ones([4,1])
+            for i in range(new_cloud_object_deprojected_points.points.shape[0]):
+                point_h[0,:] = new_cloud_object_deprojected_points.points[i, 0]
+                point_h[1,:] = new_cloud_object_deprojected_points.points[i, 1]
+                point_h[2,:] = new_cloud_object_deprojected_points.points[i, 2]
+                extrinsinc_pos2_inv = la.inv(extrinsinc_pos2)
+                result = np.matmul(extrinsinc_pos2_inv, point_h)
+                transformed_points_updated[i,:] = np.reshape(result[0:3, :], [1,3])
+                transformed_pixel = rsObj.project_point_to_pixel(result[0:3,:],in_params2,in_model2,in_coeff2)
+
+                if not math.isnan(transformed_pixel[0])  and not math.isnan(transformed_pixel[1]):
+                    transformed_coords += str(round(transformed_pixel[0])) + " " + str(round(transformed_pixel[1]))+ "\n"
+                cnt+=1
+
+            f2 = open("transformed_points.txt","w")
+            f2.write(transformed_coords)
+            f2.close()
+
+            # Convert transformed_coords string to a list of tuples
+            coords = [tuple(map(int, line.split())) for line in transformed_coords.strip().split('\n') if line]
+            
+            # Get the centroid coordinates for the downsampled and then transformed mask of previous image
+            xcent, ycent = find_centroid_from_coordinates(coords)
+            input_point = np.array([[xcent, ycent]])
+
+            image = image2.copy()
+            f = open("transformed_points.txt","r")
+
+            # Get minX, minY, maxX, maxY to use the box method from SAM to which a box is sent as input in predict method
+            minx = 2000
+            miny= 2000
+            maxx = -1
+            maxy = -1
+            for line in f:
+                line = line.strip("\n")
+                x, y = line.split(" ")
+                cv2.circle(image, (int(x), int(y)), 3, (255, 0, 0), 3) 
+
+                minx = min(int(x),minx)
+                miny= min(int(y),miny)
+                maxx = max(int(x),maxx)
+                maxy = max(int(y),maxy)
+
+            # To see the image with transformed points which are downsampled from the mask of the previous image sam output
+            #cv2.imwrite(data_path+"Sampled from "+str(trans_cnt-1)+" img and Transformed to "+str(trans_cnt)+" img"+".png",image)
+            image = image2.copy()
+            image_path = data_path+"pose_"+str(trans_cnt)+"/cheezit_"+str(trans_cnt)+".png"
+            pil_img = Image.open(image_path)
+
+            predictor.set_image(np.array(pil_img))
+
+            box = np.array([minx,miny,maxx,maxy])
+
+            input_label = np.array([1])
+
+            # Give centroid points and also box as input
+            masks, scores, _ = predictor.predict(   
+                    point_coords=input_point,
+                    point_labels=input_label,
+                    box = box[None, :],
+                    multimask_output=True,
+                    )   
+            transformed_masks.append(masks[np.argmax(scores)])
+            # img_with_mask = show_mask(masks[np.argmax(scores)], image, False, 0.6)
+
+            
+            
+            # masks=masks[np.argmax(scores)]
+
+            boxes.append(box)
+            centroids.append([xcent, ycent])
+            # Draw box
+            # x0, y0, x1, y1 = box
+            # cv2.rectangle(img_with_mask, (int(x0), int(y0)), (int(x1), int(y1)), (0, 255, 0), 2)
+            # cv2.circle(img_with_mask, (int(xcent), int(ycent)), 3, (255, 255, 255), -1)
+        previous_masks = transformed_masks
+        masks = transformed_masks[0]
+
+        for i in range(1,len(transformed_masks)):
+            masks += transformed_masks[i]
+        img_with_mask = show_mask(masks, image2.copy(), False, 0.6)
+
+            # Draw box
+            # x0, y0, x1, y1 = box
+        for box in boxes:
+            x0, y0, x1, y1 = box
+            cv2.rectangle(img_with_mask, (int(x0), int(y0)), (int(x1), int(y1)), (0, 255, 0), 2)
+        for centroid in centroids:
+            xcent, ycent = centroid
+            cv2.circle(img_with_mask, (int(xcent), int(ycent)), 3, (255, 255, 255), -1)
+
+        # for elem in range(1,len(undo_mask_stack)):
+        #     if undo_mask_stack[elem].coord_available: 
+        #         cv2.circle(img_with_mask, (undo_mask_stack[elem].x, undo_mask_stack[elem].y), 3, (255, 0, 0), 3)
+
+        # Save the new image which has predicted output of sam along with the bounding box of previous mask and centroid point of previous mask, which are transformed to new image
+        cv2.imwrite(data_path+" SAM output of multiple masks img "+str(trans_cnt)+".png",img_with_mask)
+
+    predictor.set_image(np.array(ui_pil_img))
+
+    print("Done")
 
 # Save the recent mask to a file and transform the mask
 def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, ui_pil_img):
@@ -610,7 +825,7 @@ def main(args):
         font= ('Helvetica 15 bold'),
         image=save_button_image,
         compound= "left",
-        command=lambda:  save_all_masks_to_file_and_transform(undo_mask_stack,ui_extrinsics1,ui_label,ui_rsObj)
+        command=lambda:  save_all_masks_to_file_and_transform(undo_mask_stack,data_path,ui_predictor, ui_pil_img)
     ).grid(row=0,column=5,sticky='nesw')
     
     save_recent_button_image = ImageTk.PhotoImage(Image.open('button_imgs/icons8-save-50.png'))
