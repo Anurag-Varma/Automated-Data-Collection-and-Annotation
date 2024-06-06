@@ -83,29 +83,68 @@ class samplePose(object):
 
     '''Function to sample the camera positions from a Normal distribution:'''
     def samplePositions(self):
-        self.x = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
-        self.y = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
-        self.z = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
-        self.points = np.zeros([self.num_points, self.dim])
+        # self.x = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
+        # self.y = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
+        # self.z = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
+        # self.points = np.zeros([self.num_points, self.dim])
 
-        for i in range(self.num_points):
-            self.points[i, :] = np.asarray([self.x[i], self.y[i], self.z[i]])
+        # for i in range(self.num_points):
+        #     self.points[i, :] = np.asarray([self.x[i], self.y[i], self.z[i]])
+        
+        
+        # Number of points
+        num_points = self.num_points
 
+        # Radius of the hemisphere
+        r = 0.75 * self.radius 
+
+        def fibonacci_sphere(samples=1000, radius=1, randomize=True):
+            rnd = 1.
+            if randomize:
+                rnd = np.random.random() * samples
+
+            points = []
+            offset = 2./samples
+            increment = np.pi * (3. - np.sqrt(5.))
+
+            for i in range(samples):
+                y = ((i * offset) - 1) + (offset / 2)
+                r = np.sqrt(1 - y*y) * radius  # Scale the radius
+                phi = ((i + rnd) % samples) * increment
+                x = np.cos(phi) * r
+                z = np.sin(phi) * r
+
+                # Adjust to only keep points on the upper hemisphere
+                points.append((x, y * radius, z))  # Apply radius scaling to y
+
+            return np.array(points)
+
+
+        points = fibonacci_sphere(num_points, r, randomize=False)
+
+        # Convert points list to a numpy array for better handling
+        points_array = np.array(points)
+
+
+        self.points = points_array
+      
+        
         # Normalizing the points. This process ensures that the sampled points are on the surface of a unit sphere:
-        for i in range(self.num_points):
-            point = self.points[i, :]
-            self.points[i, :] = np.divide(point, la.norm(point))
+        # for i in range(self.num_points):
+        #     point = self.points[i, :]
+        #     self.points[i, :] = np.divide(point, la.norm(point))
 
         # Multiplying the points with the computed radius:
-        self.points_updated = self.radius*self.points
+        # self.points_updated = self.radius*self.points
 
         # Now selecting the points from a specific region/quadrants:
         self.points_selected = []
-        for point in self.points_updated:
+        for point in self.points:
             x = point[0]
             # y = point[1]
             z = point[2]
             # if x < 0 and y < 0 and z > 0:
+            # if (x < 0 and z > 0.3) or (x > 0 and z > 0.3):
             if x < 0 and z > 0 or x > 0 and z > 0:
                 self.points_selected.append(point)
 

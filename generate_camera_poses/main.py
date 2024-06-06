@@ -17,6 +17,13 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from matplotlib import cm
 
 from sample_camera_poses import samplePose
+import sys
+sys.path.append('Task_Oriented_Grasping_from_Point_Cloud_Representation')
+
+
+
+from Task_Oriented_Grasping_from_Point_Cloud_Representation.main_pivoting import main_pivoting_main
+
 
 '''Function to read a CSV file:'''
 def readCSV(filename):
@@ -64,6 +71,7 @@ if __name__ == '__main__':
     sampling_object.initial_camera_pose_base = np.asarray(readCSV('camera_pose_trial1.csv'))
 
     # Reading the camera pose obtained after moving the end-effector closer to the objects expressed with respect to the base reference frame:
+    #sampling_object.final_camera_pose_base = main_pivoting_main("object_processed_base_frame_12.ply")
     sampling_object.final_camera_pose_base = np.asarray(readCSV('camera_pose_trial2.csv'))
 
     # Updating the rotation matrix of the final camera pose with identity
@@ -76,9 +84,9 @@ if __name__ == '__main__':
 
     # Computing the radius after the initial camera pose has been transformed:
     sampling_object.p_initial_camera_pose_transformed = np.reshape(sampling_object.initial_camera_pose_transformed[0:3, 3], [3,1])
+
     # radius_vector = np.subtract()
     sampling_object.radius = la.norm(sampling_object.p_initial_camera_pose_transformed)
-
     # Generating points on the surface of the sphere centered at final_pose_updated:
     sampling_object.num_points = 1000
     sampling_object.dim = 3
@@ -115,9 +123,9 @@ if __name__ == '__main__':
     y_points_vec = np.reshape(sampling_object.points[:, 1], [sampling_object.points.shape[0],1])
     z_points_vec = np.reshape(sampling_object.points[:, 2], [sampling_object.points.shape[0],1])
 
-    x_points_vec_updated = np.reshape(sampling_object.points_updated[:, 0], [sampling_object.points_updated.shape[0],1])
-    y_points_vec_updated = np.reshape(sampling_object.points_updated[:, 1], [sampling_object.points_updated.shape[0],1])
-    z_points_vec_updated = np.reshape(sampling_object.points_updated[:, 2], [sampling_object.points_updated.shape[0],1])
+    # x_points_vec_updated = np.reshape(sampling_object.points_updated[:, 0], [sampling_object.points_updated.shape[0],1])
+    # y_points_vec_updated = np.reshape(sampling_object.points_updated[:, 1], [sampling_object.points_updated.shape[0],1])
+    # z_points_vec_updated = np.reshape(sampling_object.points_updated[:, 2], [sampling_object.points_updated.shape[0],1])
 
     x_points_vec_selected = np.reshape(sampling_object.points_selected[:, 0], [sampling_object.points_selected.shape[0],1])
     y_points_vec_selected = np.reshape(sampling_object.points_selected[:, 1], [sampling_object.points_selected.shape[0],1])
