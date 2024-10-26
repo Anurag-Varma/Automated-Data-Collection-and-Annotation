@@ -107,13 +107,13 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
 
         # Get the following files and assume they are related to 1st image information
         extrinsics1 = data_path+"pose_"+str(trans_cnt-1)+"/"+"camera_pose.csv"
-        in_params = data_path+"pose_"+str(trans_cnt-1)+"/"+"intrinsic_params.csv"
-        in_model = data_path+"pose_"+str(trans_cnt-1)+"/"+"distortion_model.csv"
-        in_coeff = data_path+"pose_"+str(trans_cnt-1)+"/"+"intrinsic_coeffs.csv"
+        in_params = data_path+"/"+"intrinsic_params.csv"
+        in_model = data_path+"/"+"distortion_model.csv"
+        in_coeff = data_path+"/"+"intrinsic_coeffs.csv"
         depImg = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_image_pixel_transform.png"
         depArr = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_array.csv"
-        image_path = cv2.imread(data_path+"pose_"+str(trans_cnt-1)+"/cheezit_"+str(trans_cnt-1)+".png")
-        image2 = cv2.imread(data_path+"pose_"+str(trans_cnt)+"/cheezit_"+str(trans_cnt)+".png")
+        image_path = cv2.imread(data_path+"pose_"+str(trans_cnt-1)+"/item_image.png")
+        image2 = cv2.imread(data_path+"pose_"+str(trans_cnt)+"/item_image.png")
         transformed_masks = []
         boxes = []
         centroids = []
@@ -202,9 +202,9 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
             print("New transofrmed Image "+str(trans_cnt))
             new_cloud_object_deprojected_points = cloud_object_deprojected_points
             extrinsics2 = data_path+"pose_"+str(trans_cnt)+"/camera_pose.csv"
-            in_params2 = data_path+"pose_"+str(trans_cnt)+"/intrinsic_params.csv"
-            in_model2 = data_path+"pose_"+str(trans_cnt)+"/distortion_model.csv"
-            in_coeff2 = data_path+"pose_"+str(trans_cnt)+"/intrinsic_coeffs.csv"
+            in_params2 = data_path+"/intrinsic_params.csv"
+            in_model2 = data_path+"/distortion_model.csv"
+            in_coeff2 = data_path+"/intrinsic_coeffs.csv"
 
             transformed_coords = ""
             cnt = 0
@@ -289,7 +289,7 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
             # To see the image with transformed points which are downsampled from the mask of the previous image sam output
             #cv2.imwrite(data_path+"Sampled from "+str(trans_cnt-1)+" img and Transformed to "+str(trans_cnt)+" img"+".png",image)
             image = image2.copy()
-            image_path = data_path+"pose_"+str(trans_cnt)+"/cheezit_"+str(trans_cnt)+".png"
+            image_path = data_path+"pose_"+str(trans_cnt)+"/item_image.png"
             pil_img = Image.open(image_path)
 
             predictor.set_image(np.array(pil_img))
@@ -354,16 +354,16 @@ def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, 
     masks = undo_mask_stack[-1].mask
 
     # Iterate from 2nd folder to 8th folder from Spring_24_Data
-    for trans_cnt in range(2,9):
+    for trans_cnt in range(2,8):
 
         # Get the following files and assume they are related to 1st image information
         extrinsics1 = data_path+"pose_"+str(trans_cnt-1)+"/"+"camera_pose.csv"
-        in_params = data_path+"pose_"+str(trans_cnt-1)+"/"+"intrinsic_params.csv"
-        in_model = data_path+"pose_"+str(trans_cnt-1)+"/"+"distortion_model.csv"
-        in_coeff = data_path+"pose_"+str(trans_cnt-1)+"/"+"intrinsic_coeffs.csv"
+        in_params = data_path+"/"+"intrinsic_params.csv"
+        in_model = data_path+"/"+"distortion_model.csv"
+        in_coeff = data_path+"/"+"intrinsic_coeffs.csv"
         depImg = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_image_pixel_transform.png"
         depArr = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_array.csv"
-        image_path = cv2.imread(data_path+"pose_"+str(trans_cnt-1)+"/cheezit_"+str(trans_cnt-1)+".png")
+        image_path = cv2.imread(data_path+"pose_"+str(trans_cnt-1)+"/item_image.png")
 
 
         print("save most recent mask to file")
@@ -442,10 +442,10 @@ def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, 
         print("New transofrmed Image "+str(trans_cnt))
         new_cloud_object_deprojected_points = cloud_object_deprojected_points
         extrinsics2 = data_path+"pose_"+str(trans_cnt)+"/camera_pose.csv"
-        in_params2 = data_path+"pose_"+str(trans_cnt)+"/intrinsic_params.csv"
-        in_model2 = data_path+"pose_"+str(trans_cnt)+"/distortion_model.csv"
-        in_coeff2 = data_path+"pose_"+str(trans_cnt)+"/intrinsic_coeffs.csv"
-        image2 = cv2.imread(data_path+"pose_"+str(trans_cnt)+"/cheezit_"+str(trans_cnt)+".png")
+        in_params2 = data_path+"/intrinsic_params.csv"
+        in_model2 = data_path+"/distortion_model.csv"
+        in_coeff2 = data_path+"/intrinsic_coeffs.csv"
+        image2 = cv2.imread(data_path+"pose_"+str(trans_cnt)+"/item_image.png")
 
         transformed_coords = ""
         cnt = 0
@@ -531,7 +531,7 @@ def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, 
         #cv2.imwrite(data_path+"Sampled from "+str(trans_cnt-1)+" img and Transformed to "+str(trans_cnt)+" img"+".png",image)
 
         image = image2.copy()
-        image_path = data_path+"pose_"+str(trans_cnt)+"/cheezit_"+str(trans_cnt)+".png"
+        image_path = data_path+"pose_"+str(trans_cnt)+"/item_image.png"
         pil_img = Image.open(image_path)
 
         predictor.set_image(np.array(pil_img))
@@ -712,15 +712,15 @@ def click_event(eventorigin, undo_mask_stack, predictor, img, label):
 def main(args):
 
     # Hard coded values as per the given dataset in ./Spring_24_Data/
-    data_path="Spring_24_Data/"
+    data_path="fall_24_Data/"
 
     ui_extrinsics1 = data_path+"pose_1/"+"camera_pose.csv"
-    ui_in_params = data_path+"pose_1/"+"intrinsic_params.csv"
-    ui_in_model = data_path+"pose_1/"+"distortion_model.csv"
-    ui_in_coeff = data_path+"pose_1/"+"intrinsic_coeffs.csv"
+    ui_in_params = data_path+"intrinsic_params.csv"
+    ui_in_model = data_path+"distortion_model.csv"
+    ui_in_coeff = data_path+"intrinsic_coeffs.csv"
     ui_depImg = data_path+"pose_1/"+"depth_image_pixel_transform.png"
     ui_depArr = data_path+"pose_1/"+"depth_array.csv"
-    ui_image_path = data_path+"pose_1/"+"cheezit_1.png"
+    ui_image_path = data_path+"pose_1/"+"item_image.png"
 
     ui_rsObj = RealsenseSubscriber(ui_in_params,ui_in_model,ui_in_coeff,ui_depArr,ui_depImg)
 

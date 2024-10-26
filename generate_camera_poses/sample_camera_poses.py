@@ -98,29 +98,54 @@ class samplePose(object):
         # Radius of the hemisphere
         r = 0.75 * self.radius 
 
-        def fibonacci_sphere(samples=1000, radius=1, randomize=True):
-            rnd = 1.
-            if randomize:
-                rnd = np.random.random() * samples
+        # def fibonacci_sphere(samples=10000, radius=1):
+        #     points = []
+        #     offset = 2.0 / samples
+        #     increment = np.pi * (3.0 - np.sqrt(5.0))
 
+        #     for i in range(samples):
+        #         y = ((i * offset) - 1) + (offset / 2)
+        #         r = np.sqrt(1 - y * y) * radius
+        #         phi = i * increment  # Sequential order without random offset
+        #         x = np.cos(phi) * r
+        #         z = np.sin(phi) * r
+
+        #         points.append((x, y * radius, z))
+
+        #     return np.array(points)
+
+
+        # points = fibonacci_sphere(num_points, r)
+        
+        def sequential_hemisphere(total_points=1000, radius=1):
             points = []
-            offset = 2./samples
-            increment = np.pi * (3. - np.sqrt(5.))
+            latitude_layers = 20  # Number of latitude layers
+            samples_per_latitude = total_points // latitude_layers  # Points per latitude layer
 
-            for i in range(samples):
-                y = ((i * offset) - 1) + (offset / 2)
-                r = np.sqrt(1 - y*y) * radius  # Scale the radius
-                phi = ((i + rnd) % samples) * increment
-                x = np.cos(phi) * r
-                z = np.sin(phi) * r
+            # Angle increment per latitude layer (from 0 to π for upper hemisphere)
+            theta_increment = np.pi / latitude_layers
 
-                # Adjust to only keep points on the upper hemisphere
-                points.append((x, y * radius, z))  # Apply radius scaling to y
+            for j in range(latitude_layers):
+                # Calculate the polar angle for this latitude layer
+                theta = j * theta_increment  # Start from equator to top pole
+
+                # Calculate radius for this layer on the xy-plane
+                y = np.cos(theta) * radius
+                layer_radius = np.sin(theta) * radius
+
+                # Distribute points around this latitude circle for full longitude coverage
+                phi_increment = 2 * np.pi / samples_per_latitude
+                for i in range(samples_per_latitude):
+                    phi = i * phi_increment  # Sequentially around each latitude
+                    x = layer_radius * np.cos(phi)
+                    z = layer_radius * np.sin(phi)
+
+                    points.append((x, y, z))
 
             return np.array(points)
 
 
-        points = fibonacci_sphere(num_points, r, randomize=False)
+        points = sequential_hemisphere(num_points, r)
 
         # Convert points list to a numpy array for better handling
         points_array = np.array(points)
@@ -143,35 +168,57 @@ class samplePose(object):
             x = point[0]
             # y = point[1]
             z = point[2]
-            # if x < 0 and y < 0 and z > 0:
-            # if (x < 0 and z > 0.3) or (x > 0 and z > 0.3):
-            if x < 0 and z > 0 or x > 0 and z > 0:
+            if  z > 0:
                 self.points_selected.append(point)
 
         self.points_selected = np.asarray(self.points_selected)
     
-    '''Function to compute the orientation of the camera reference frame corresponding to the positons'''
+    '''Function to compute the orientation of the camera reference frame corresponding to the positions'''
     def samplePoses(self):
         self.poses_EE = []
+        
+        # Define a fixed x-axis direction (can be any fixed vector, e.g., pointing in the world frame)
+        fixed_x_axis = np.array([1, 0, 0])  # For example, along the global x-axis
+
         for p in self.points_selected:
-            self.z_EE = np.reshape(-1*p, [3])
-            self.z_EE /= la.norm(self.z_EE)
-            # x_EE = x_axis
-            self.x_EE = np.random.randn(3)
-            self.x_EE -= self.x_EE.dot(self.z_EE)*self.z_EE
-            self.x_EE /= la.norm(self.x_EE)
-            self.y_EE = np.cross(self.z_EE, self.x_EE)
-            self.R_EE = np.zeros([3,3])
-            self.R_EE[:, 0] = self.x_EE
-            self.R_EE[:, 1] = self.y_EE
-            self.R_EE[:, 2] = self.z_EE
-            self.gripper_pose = np.zeros([4,4])
-            self.gripper_pose[0:3, 0:3] = self.R_EE
-            self.gripper_pose[0:3, 3] = np.reshape(p, [3])
-            self.gripper_pose[3,3] = 1
+            # Compute the z-axis: it points from the point to the object (same as before)
+            self.z_EE = np.reshape(-1 * p, [3])
+            self.z_EE /= la.norm(self.z_EE)  # Normalize z-axis
+
+            # Ensure that the fixed x-axis is orthogonal to the z-axis
+            if np.dot(fixed_x_axis, self.z_EE) != 1.0:  # To prevent parallel vectors
+                # Calculate the y-axis: cross product between z and the fixed x-axis
+                self.y_EE = np.cross(self.z_EE, fixed_x_axis)
+                self.y_EE /= la.norm(self.y_EE)  # Normalize y-axis
+
+                # Now recalculate the x-axis to ensure orthonormality
+                self.x_EE = np.cross(self.y_EE, self.z_EE)  # Cross product of y and z
+                self.x_EE /= la.norm(self.x_EE)  # Normalize x-axis
+            else:
+                # Handle the case where fixed_x_axis and z_EE are parallel
+                # You can assign another orthogonal axis here, for instance:
+                self.x_EE = np.array([0, 1, 0])  # Choose a different axis if needed
+                self.y_EE = np.cross(self.z_EE, self.x_EE)
+                self.y_EE /= la.norm(self.y_EE)
+
+            # Construct the rotation matrix R_EE
+            self.R_EE = np.zeros([3, 3])
+            self.R_EE[:, 0] = self.x_EE  # X-axis
+            self.R_EE[:, 1] = self.y_EE  # Y-axis
+            self.R_EE[:, 2] = self.z_EE  # Z-axis
+
+            # Construct the 4x4 homogeneous transformation matrix (pose)
+            self.gripper_pose = np.zeros([4, 4])
+            self.gripper_pose[0:3, 0:3] = self.R_EE  # Rotation part
+            self.gripper_pose[0:3, 3] = np.reshape(p, [3])  # Position part
+            self.gripper_pose[3, 3] = 1  # Homogeneous transformation
+
+            # Append the computed pose to the list of poses
             self.poses_EE.append(self.gripper_pose)
 
+        # Convert poses to a numpy array for easier handling later
         self.poses_EE = np.asarray(self.poses_EE)
+
     
     '''Function to transform the computed camera poses to the base reference frame of the robot:'''
     def transformToBase(self):

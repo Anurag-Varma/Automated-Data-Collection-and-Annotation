@@ -88,7 +88,7 @@ if __name__ == '__main__':
     # radius_vector = np.subtract()
     sampling_object.radius = la.norm(sampling_object.p_initial_camera_pose_transformed)
     # Generating points on the surface of the sphere centered at final_pose_updated:
-    sampling_object.num_points = 1000
+    sampling_object.num_points = 2000
     sampling_object.dim = 3
 
     # Sampling random points from a Gaussian distribution
@@ -144,17 +144,23 @@ if __name__ == '__main__':
 
     # Base reference Frame:
     ax7 = plotReferenceFrame(sampling_object.R_base, sampling_object.p_base, 0.25, 0.15, ax7)
-    
+
     # Initial camera reference frame expressed with respect to the base reference frame:
     sampling_object.R_initial_camera_pose_base = sampling_object.initial_camera_pose_base[0:3, 0:3]
     sampling_object.p_initial_camera_pose_base = sampling_object.initial_camera_pose_base[0:3, 3]
     ax7 = plotReferenceFrame(sampling_object.R_initial_camera_pose_base, sampling_object.p_initial_camera_pose_base, 0.15, 0.15, ax7)
 
-    # Plotting the points of the point cloud:
+    # Plotting the entire point cloud:
     ax7.scatter(x_points, y_points, z_points, s = 0.2)
 
     # Plotting the transformed new camera positions:
     ax7.scatter(x_transformed_points, y_transformed_points, z_transformed_points, s = 0.2)
+
+    # ax7.scatter(x_transformed_points[100:120], y_transformed_points[100:120], z_transformed_points[100:120], color='blue', s=50)
+
+    # ax7.scatter(x_transformed_points[360:380], y_transformed_points[360:380], z_transformed_points[360:380], color='red', s=50)
+
+    # ax7.scatter(x_transformed_points[570:590], y_transformed_points[570:590], z_transformed_points[570:590], color='green', s=50)
 
     ax7.set_xlabel('X')
     ax7.set_ylabel('Y')
@@ -173,7 +179,7 @@ if __name__ == '__main__':
     # Plotting the points of the point cloud:
     ax8.scatter(x_points, y_points, z_points, s = 0.2)
     # Sampled camera reference poses:
-    for i in range(100,150):
+    for i in range(0,500,6):
         pose = sampling_object.transformed_poses[i, :, :]
         R = pose[0:3, 0:3]
         p = pose[0:3, 3]
@@ -196,7 +202,7 @@ if __name__ == '__main__':
     # Plotting the points of the point cloud:
     ax9.scatter(x_points, y_points, z_points, s = 0.2)
     # Sampled end-effector poses:
-    for i in range(100,150):
+    for i in range(0,500,6):
         pose = sampling_object.transformed_end_effector_poses[i]
         R = pose[0:3, 0:3]
         p = pose[0:3, 3]
@@ -225,6 +231,8 @@ if __name__ == '__main__':
         R = pose[0:3, 0:3]
         p = pose[0:3, 3]
         ax10 = plotReferenceFrame(R, p, 0.15, 0.15, ax10)
+
+    print(len(sampling_object.nearest_poses))
 
     ax10.set_xlabel('X')
     ax10.set_ylabel('Y')
