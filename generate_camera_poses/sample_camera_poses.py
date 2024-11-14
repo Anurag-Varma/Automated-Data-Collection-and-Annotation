@@ -96,7 +96,8 @@ class samplePose(object):
         num_points = self.num_points
 
         # Radius of the hemisphere
-        r = 0.75 * self.radius 
+        # r = 0.75 * self.radius 
+        r = self.radius 
 
         # def fibonacci_sphere(samples=10000, radius=1):
         #     points = []
@@ -168,7 +169,7 @@ class samplePose(object):
             x = point[0]
             # y = point[1]
             z = point[2]
-            if  z > 0:
+            if x < 0 and z > 0.1 or x > 0 and z > 0.1:
                 self.points_selected.append(point)
 
         self.points_selected = np.asarray(self.points_selected)
@@ -250,7 +251,7 @@ class samplePose(object):
         # Computing the 
         self.distance_threshold = self.radius + self.constant*self.radius
         self.nearest_poses = []
-        for pose in self.transformed_end_effector_poses:
+        for pose in self.transformed_end_effector_poses[::3]:
             position_vector = pose[0:3, 3]
             if la.norm(position_vector) < self.distance_threshold:
                 self.nearest_poses.append(pose)

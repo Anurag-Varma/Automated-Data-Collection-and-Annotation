@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     # Getting the poses nearest to the robot base reference frame. Please note that we only use the 
     # position vector corresponding to a particular pose while computing nearest poses. 
-    sampling_object.constant = 0.2
+    sampling_object.constant = 1
 
     sampling_object.getNearestPoses()
     '''distance_threshold = sampling_object.radius + constant*sampling_object.radius
@@ -155,12 +155,6 @@ if __name__ == '__main__':
 
     # Plotting the transformed new camera positions:
     ax7.scatter(x_transformed_points, y_transformed_points, z_transformed_points, s = 0.2)
-
-    # ax7.scatter(x_transformed_points[100:120], y_transformed_points[100:120], z_transformed_points[100:120], color='blue', s=50)
-
-    # ax7.scatter(x_transformed_points[360:380], y_transformed_points[360:380], z_transformed_points[360:380], color='red', s=50)
-
-    # ax7.scatter(x_transformed_points[570:590], y_transformed_points[570:590], z_transformed_points[570:590], color='green', s=50)
 
     ax7.set_xlabel('X')
     ax7.set_ylabel('Y')
@@ -232,8 +226,6 @@ if __name__ == '__main__':
         p = pose[0:3, 3]
         ax10 = plotReferenceFrame(R, p, 0.15, 0.15, ax10)
 
-    print(len(sampling_object.nearest_poses))
-
     ax10.set_xlabel('X')
     ax10.set_ylabel('Y')
     ax10.set_zlabel('Z')
@@ -242,3 +234,16 @@ if __name__ == '__main__':
     ax10.set_zlim(-0.8, 1)
 
     plt.show()
+
+
+    # # Flatten each 4x4 matrix to a 1D array of 16 elements and stack them
+    # flattened_poses = [pose.flatten() for pose in sampling_object.nearest_poses]
+
+    # # Save to CSV
+    # filename = 'transformed_end_effector_poses.csv'
+    # with open(filename, mode='w', newline='') as file:
+    #     writer = csv.writer(file)
+    #     writer.writerow(['R11', 'R12', 'R13', 'Tx', 'R21', 'R22', 'R23', 'Ty', 'R31', 'R32', 'R33', 'Tz', 'P14', 'P24', 'P34', 'P44'])  # Header for 4x4 matrix
+    #     writer.writerows(flattened_poses)
+
+    # print(f"Poses saved to {filename}")
