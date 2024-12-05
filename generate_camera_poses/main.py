@@ -173,7 +173,7 @@ if __name__ == '__main__':
     # Plotting the points of the point cloud:
     ax8.scatter(x_points, y_points, z_points, s = 0.2)
     # Sampled camera reference poses:
-    for i in range(0,500,6):
+    for i in range(0,300,6):
         pose = sampling_object.transformed_poses[i, :, :]
         R = pose[0:3, 0:3]
         p = pose[0:3, 3]
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     # Plotting the points of the point cloud:
     ax9.scatter(x_points, y_points, z_points, s = 0.2)
     # Sampled end-effector poses:
-    for i in range(0,500,6):
+    for i in range(0,300,6):
         pose = sampling_object.transformed_end_effector_poses[i]
         R = pose[0:3, 0:3]
         p = pose[0:3, 3]
@@ -236,14 +236,14 @@ if __name__ == '__main__':
     plt.show()
 
 
-    # # Flatten each 4x4 matrix to a 1D array of 16 elements and stack them
-    # flattened_poses = [pose.flatten() for pose in sampling_object.nearest_poses]
+    # Flatten each 4x4 matrix to a 1D array of 16 elements and stack them
+    flattened_poses = [pose.flatten() for pose in sampling_object.nearest_poses]
 
-    # # Save to CSV
-    # filename = 'transformed_end_effector_poses.csv'
-    # with open(filename, mode='w', newline='') as file:
-    #     writer = csv.writer(file)
-    #     writer.writerow(['R11', 'R12', 'R13', 'Tx', 'R21', 'R22', 'R23', 'Ty', 'R31', 'R32', 'R33', 'Tz', 'P14', 'P24', 'P34', 'P44'])  # Header for 4x4 matrix
-    #     writer.writerows(flattened_poses)
+    # Save to CSV
+    filename = 'transformed_end_effector_poses.csv'
+    with open(filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['R11', 'R12', 'R13', 'Tx', 'R21', 'R22', 'R23', 'Ty', 'R31', 'R32', 'R33', 'Tz', 'P14', 'P24', 'P34', 'P44'])  # Header for 4x4 matrix
+        writer.writerows(flattened_poses)
 
-    # print(f"Poses saved to {filename}")
+    print(f"Poses saved to {filename}")

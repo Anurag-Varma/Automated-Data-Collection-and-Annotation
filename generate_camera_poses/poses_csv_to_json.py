@@ -77,7 +77,7 @@ import json
 # Prepare data to save
 grouped_poses = {}
 for group_index, indices in groups.items():
-    grouped_poses[group_index] = [transformation_matrices[idx].tolist() for idx in indices]
+    grouped_poses[group_index] = [transformation_matrices[idx].tolist() for idx in indices[::-1]]
 
 # Define the path for the output JSON file
 output_file_path = 'grouped_end_effector_poses.json'

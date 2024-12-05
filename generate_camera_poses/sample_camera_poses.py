@@ -169,7 +169,7 @@ class samplePose(object):
             x = point[0]
             # y = point[1]
             z = point[2]
-            if x < 0 and z > 0.1 or x > 0 and z > 0.1:
+            if x < 0 and z > 0.3 or x > 0 and z > 0.3:
                 self.points_selected.append(point)
 
         self.points_selected = np.asarray(self.points_selected)
