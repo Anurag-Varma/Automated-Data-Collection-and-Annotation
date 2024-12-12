@@ -2,11 +2,17 @@ import argparse
 import torch
 import cv2
 import os
+import shutil
 import numpy as np
 from PIL import Image
+import pandas as pd
 from  matplotlib import pyplot as plt
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from torchvision.transforms import InterpolationMode
+
+from cv_bridge import CvBridge
+from bagpy import bagreader
+import ast
 BICUBIC = InterpolationMode.BICUBIC
 
 from segment_anything import sam_model_registry, SamPredictor
@@ -80,40 +86,34 @@ def clear_stacks(undo_mask_stack, redo_mask_stack,predictor,img,label):
     label.configure(image = imgtk)
    
 
-   
-
-
 # Save the union of all the mask to a file and also display transformed masks output
-def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui_pil_img):
+def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,extracted_bag_path,sam_output_images,predictor, ui_pil_img):
 
     file_name = filedialog.asksaveasfilename(defaultextension=".csv",
                                                 filetypes=[("csv file", ".csv")],
        
                                              )
-    # print(undo_mask_stack)
-    # print("no of masks",len(undo_mask_stack))
-    # for point in undo_mask_stack:
-    #     print(point.x,point.y)
-    # masks = undo_mask_stack[-1].mask
-    # print(masks)
-    # print("no of masks",len(masks))
+
     undo_mask_stack = undo_mask_stack[1:]
-    # Iterate from 2nd folder to 8th folder from Spring_24_Data
+
+    # Iterate from 2nd folder to 8th folder from fall_24_Data
     previous_masks = []
     for obj in undo_mask_stack:
         previous_masks.append(obj.mask)
 
-    for trans_cnt in range(2,9):
+    num_folders = len([name for name in os.listdir(extracted_bag_path) if os.path.isdir(os.path.join(extracted_bag_path, name))])
+
+    for trans_cnt in range(2,num_folders+1):
 
         # Get the following files and assume they are related to 1st image information
-        extrinsics1 = data_path+"pose_"+str(trans_cnt-1)+"/"+"camera_pose.csv"
-        in_params = data_path+"/"+"intrinsic_params.csv"
-        in_model = data_path+"/"+"distortion_model.csv"
-        in_coeff = data_path+"/"+"intrinsic_coeffs.csv"
-        depImg = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_image_pixel_transform.png"
-        depArr = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_array.csv"
-        image_path = cv2.imread(data_path+"pose_"+str(trans_cnt-1)+"/item_image.png")
-        image2 = cv2.imread(data_path+"pose_"+str(trans_cnt)+"/item_image.png")
+        extrinsics1 = extracted_bag_path+"/pose_"+str(trans_cnt-1)+"/camera_pose.csv"
+        in_params = data_path+"/intrinsic_params.csv"
+        in_model = data_path+"/distortion_model.csv"
+        in_coeff = data_path+"/intrinsic_coeffs.csv"
+        depImg = extracted_bag_path+"/pose_"+str(trans_cnt-1)+"/depth_image_pixel_transform.png"
+        depArr = extracted_bag_path+"/pose_"+str(trans_cnt-1)+"/depth_array.csv"
+        image_path = cv2.imread(extracted_bag_path+"/pose_"+str(trans_cnt-1)+"/image.png")
+        image2 = cv2.imread(extracted_bag_path+"/pose_"+str(trans_cnt)+"/image.png")
         transformed_masks = []
         boxes = []
         centroids = []
@@ -132,7 +132,7 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
 
             img_mask =  genfromtxt(file_name,delimiter=",")
             result_arr = rsObj.deproject_pixel_to_point(img_mask)
-            print(len(result_arr))
+
             if(len(result_arr) <= 10):
                 print("less points 0")
                 continue
@@ -196,19 +196,16 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
             cloud_object_deprojected_points.getObjectPointCloud()
 
 
-
-
             # Get the following files and assume they are related to 2nd image information
-            print("New transofrmed Image "+str(trans_cnt))
+            print("New transformed Image "+str(trans_cnt))
             new_cloud_object_deprojected_points = cloud_object_deprojected_points
-            extrinsics2 = data_path+"pose_"+str(trans_cnt)+"/camera_pose.csv"
+            extrinsics2 = extracted_bag_path+"/pose_"+str(trans_cnt)+"/camera_pose.csv"
             in_params2 = data_path+"/intrinsic_params.csv"
             in_model2 = data_path+"/distortion_model.csv"
             in_coeff2 = data_path+"/intrinsic_coeffs.csv"
 
             transformed_coords = ""
             cnt = 0
-
 
             # Call deproject project and transform code 
             extrinsinc_pos2 = genfromtxt(extrinsics2, delimiter=',')
@@ -221,7 +218,6 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
 
             print('Shape of the deprojected points: ', new_cloud_object_deprojected_points.points.shape)
 
-            # Transforming these deprojected points from the base reference frame to the second camera pose:
             # Initializing object to class pointCloud() for visualization purposes:
             cloud_object_transformed_points = pointCloud()
 
@@ -286,10 +282,8 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
                 maxx = max(int(x),maxx)
                 maxy = max(int(y),maxy)
 
-            # To see the image with transformed points which are downsampled from the mask of the previous image sam output
-            #cv2.imwrite(data_path+"Sampled from "+str(trans_cnt-1)+" img and Transformed to "+str(trans_cnt)+" img"+".png",image)
             image = image2.copy()
-            image_path = data_path+"pose_"+str(trans_cnt)+"/item_image.png"
+            image_path = extracted_bag_path+"/pose_"+str(trans_cnt)+"/image.png"
             pil_img = Image.open(image_path)
 
             predictor.set_image(np.array(pil_img))
@@ -308,10 +302,6 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
             transformed_masks.append(masks[np.argmax(scores)])
             # img_with_mask = show_mask(masks[np.argmax(scores)], image, False, 0.6)
 
-            
-            
-            # masks=masks[np.argmax(scores)]
-
             boxes.append(box)
             centroids.append([xcent, ycent])
             # Draw box
@@ -325,8 +315,6 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
             masks += transformed_masks[i]
         img_with_mask = show_mask(masks, image2.copy(), False, 0.6)
 
-            # Draw box
-            # x0, y0, x1, y1 = box
         for box in boxes:
             x0, y0, x1, y1 = box
             cv2.rectangle(img_with_mask, (int(x0), int(y0)), (int(x1), int(y1)), (0, 255, 0), 2)
@@ -334,36 +322,33 @@ def save_all_masks_to_file_and_transform(undo_mask_stack,data_path,predictor, ui
             xcent, ycent = centroid
             cv2.circle(img_with_mask, (int(xcent), int(ycent)), 3, (255, 255, 255), -1)
 
-        # for elem in range(1,len(undo_mask_stack)):
-        #     if undo_mask_stack[elem].coord_available: 
-        #         cv2.circle(img_with_mask, (undo_mask_stack[elem].x, undo_mask_stack[elem].y), 3, (255, 0, 0), 3)
-
         # Save the new image which has predicted output of sam along with the bounding box of previous mask and centroid point of previous mask, which are transformed to new image
-        cv2.imwrite(data_path+" SAM output of multiple masks img "+str(trans_cnt)+".png",img_with_mask)
+        cv2.imwrite(sam_output_images+"/SAM output of multiple masks img "+str(trans_cnt)+".png",img_with_mask)
 
     predictor.set_image(np.array(ui_pil_img))
 
     print("Done")
 
 # Save the recent mask to a file and transform the mask
-def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, ui_pil_img):
+def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,extracted_bag_path,sam_output_images,predictor, ui_pil_img):
 
     file_name = filedialog.asksaveasfilename(defaultextension=".csv",
                                                 filetypes=[("csv file", ".csv")],
                                                 )
     masks = undo_mask_stack[-1].mask
 
-    # Iterate from 2nd folder to 8th folder from Spring_24_Data
-    for trans_cnt in range(2,8):
+    num_folders = len([name for name in os.listdir(extracted_bag_path) if os.path.isdir(os.path.join(extracted_bag_path, name))])
+
+    for trans_cnt in range(2,num_folders+1):
 
         # Get the following files and assume they are related to 1st image information
-        extrinsics1 = data_path+"pose_"+str(trans_cnt-1)+"/"+"camera_pose.csv"
-        in_params = data_path+"/"+"intrinsic_params.csv"
-        in_model = data_path+"/"+"distortion_model.csv"
-        in_coeff = data_path+"/"+"intrinsic_coeffs.csv"
-        depImg = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_image_pixel_transform.png"
-        depArr = data_path+"pose_"+str(trans_cnt-1)+"/"+"depth_array.csv"
-        image_path = cv2.imread(data_path+"pose_"+str(trans_cnt-1)+"/item_image.png")
+        extrinsics1 = extracted_bag_path+"/pose_"+str(trans_cnt-1)+"/camera_pose.csv"
+        in_params = data_path+"/intrinsic_params.csv"
+        in_model = data_path+"/distortion_model.csv"
+        in_coeff = data_path+"/intrinsic_coeffs.csv"
+        depImg = extracted_bag_path+"/pose_"+str(trans_cnt-1)+"/depth_image_pixel_transform.png"
+        depArr = extracted_bag_path+"/pose_"+str(trans_cnt-1)+"/depth_array.csv"
+        image_path = cv2.imread(extracted_bag_path+"/pose_"+str(trans_cnt-1)+"/image.png")
 
 
         print("save most recent mask to file")
@@ -410,7 +395,7 @@ def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, 
         cloud_object_deprojected_points.cloud = objectCloud
 
         '''Transforming the point cloud in the Panda base reference frame: '''
-        cloud_object_deprojected_points.transformToBase()
+        cloud_object_deprojected_points.initial_camera_pose_transformed()
 
         '''Visualizing the downsampled point cloud. '''
         print('Cloud transformed to base')
@@ -435,21 +420,17 @@ def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, 
         cloud_object_deprojected_points.min_points = 10
         cloud_object_deprojected_points.getObjectPointCloud()
 
-
-
-
         # Get the following files and assume they are related to 2nd image information
         print("New transofrmed Image "+str(trans_cnt))
         new_cloud_object_deprojected_points = cloud_object_deprojected_points
-        extrinsics2 = data_path+"pose_"+str(trans_cnt)+"/camera_pose.csv"
+        extrinsics2 = extracted_bag_path+"/pose_"+str(trans_cnt)+"/camera_pose.csv"
         in_params2 = data_path+"/intrinsic_params.csv"
         in_model2 = data_path+"/distortion_model.csv"
         in_coeff2 = data_path+"/intrinsic_coeffs.csv"
-        image2 = cv2.imread(data_path+"pose_"+str(trans_cnt)+"/item_image.png")
+        image2 = cv2.imread(extracted_bag_path+"/pose_"+str(trans_cnt)+"/image.png")
 
         transformed_coords = ""
         cnt = 0
-
 
         # Call deproject project and transform code 
         extrinsinc_pos2 = genfromtxt(extrinsics2, delimiter=',')
@@ -527,11 +508,8 @@ def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, 
             maxx = max(int(x),maxx)
             maxy = max(int(y),maxy)
 
-        # To see the image with transformed points which are downsampled from the mask of the previous image sam output
-        #cv2.imwrite(data_path+"Sampled from "+str(trans_cnt-1)+" img and Transformed to "+str(trans_cnt)+" img"+".png",image)
-
         image = image2.copy()
-        image_path = data_path+"pose_"+str(trans_cnt)+"/item_image.png"
+        image_path = extracted_bag_path+"/pose_"+str(trans_cnt)+"/image.png"
         pil_img = Image.open(image_path)
 
         predictor.set_image(np.array(pil_img))
@@ -549,8 +527,7 @@ def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, 
                 )   
         
         img_with_mask = show_mask(masks[np.argmax(scores)], image, False, 0.6)
-        
-        
+                
         masks=masks[np.argmax(scores)]
 
         # Draw box
@@ -559,7 +536,7 @@ def save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,predictor, 
         cv2.circle(img_with_mask, (int(xcent), int(ycent)), 3, (255, 255, 255), -1)
 
         # Save the new image which has predicted output of sam along with the bounding box of previous mask and centroid point of previous mask, which are transformed to new image
-        cv2.imwrite(data_path+" SAM output img "+str(trans_cnt)+".png",img_with_mask)
+        cv2.imwrite(sam_output_images+"/SAM output img "+str(trans_cnt)+".png",img_with_mask)
 
     predictor.set_image(np.array(ui_pil_img))
 
@@ -707,20 +684,158 @@ def click_event(eventorigin, undo_mask_stack, predictor, img, label):
       # Add new mask to undo_mask_stack
       undo_mask_stack.append(temp)
       temp.printMask(img,label)
+
+ # Define the function to create transformation matrices
+def create_transformation_matrices(df):
+            transformation_matrices = []
+            row = df.iloc[0]
+            
+            # Extract quaternion and convert to rotation matrix
+            quaternion = [row['orientation.x'], row['orientation.y'], row['orientation.z'], row['orientation.w']]
+            
+            x, y, z, w = quaternion
+            
+            rotation_matrix = np.array([
+                    [1 - 2*y**2 - 2*z**2, 2*x*y - 2*z*w,       2*x*z + 2*y*w],
+                    [2*x*y + 2*z*w,       1 - 2*x**2 - 2*z**2, 2*y*z - 2*x*w],
+                    [2*x*z - 2*y*w,       2*y*z + 2*x*w,       1 - 2*x**2 - 2*y**2]
+                ])
+
+            # Create the transformation matrix
+            transform = np.zeros((4, 4))
+            transform[:3, :3] = rotation_matrix
+            transform[:3, 3] = row[['position.x', 'position.y', 'position.z']]
+            transform[3, 3] = 1
+
+            # Append the matrix to the list
+            transformation_matrices.append(transform)
+                    
+            new_df = pd.DataFrame(transformation_matrices[0])
+            return new_df
+
+def extract_rosbag(bags_folder_path, extracted_bag_path):
+    print("Extracting rosbags...")
+    
+    # List all .bag files in the specified folder
+    bag_files = [f for f in os.listdir(bags_folder_path) if f.endswith('.bag')]
+
+    # Initialize a counter for naming the output folders
+    counter = 1
+
+    # Loop through each bag file
+    for bag_file in bag_files:
+        bag_path = os.path.join(bags_folder_path, bag_file)
+        
+        # Create an instance of bagreader
+        bag = bagreader(bag_path)
+        
+        # Assuming the correct column for topics is named 'Topics'
+        topics = bag.topic_table['Topics']  # Adjust 'Topics' if it's named differently
+
+        # Create a folder for the current pose
+        pose_folder = os.path.join(extracted_bag_path, f'pose_{counter}')
+        os.makedirs(pose_folder, exist_ok=True)
+
+        # Initialize CvBridge
+        bridge = CvBridge()
+
+        # Retrieve messages from the specified topic for color images
+        message = bag.message_by_topic('/camera/color/image_rect_color')
+        data = pd.read_csv(message)
+
+        # Convert the string representation of bytes directly into a byte array
+        image_bytes = ast.literal_eval(data.iloc[0]['data'])
+
+        # Reshape the byte array to an image array using the dimensions and step provided in the CSV
+        height, width, step = data.iloc[0]['height'], data.iloc[0]['width'], data.iloc[0]['step']
+        image_array = np.frombuffer(image_bytes, dtype=np.uint8).reshape((height, width, 3))
+
+        # Convert the image from BGR to RGB
+        image_array_rgb = cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB)
+
+        # Save the RGB image using OpenCV
+        item_image_path = os.path.join(pose_folder, 'image.png')
+        cv2.imwrite(item_image_path, image_array_rgb)
+
+        # Load depth image data
+        message = bag.message_by_topic('/camera/aligned_depth_to_color/image_raw')
+        data = pd.read_csv(message)
+
+        # Convert the string representation of bytes into a byte array
+        image_bytes = ast.literal_eval(data.iloc[0]['data'])
+
+        # Retrieve the height, width, and step from the CSV
+        height, width, step = int(data.iloc[0]['height']), int(data.iloc[0]['width']), int(data.iloc[0]['step'])
+
+        # Assuming the depth image is 16-bit (change to np.uint16 if 8-bit)
+        image_array = np.frombuffer(image_bytes, dtype=np.uint16).reshape((height, width))
+
+        # Normalize the depth values for display
+        image_normalized = cv2.normalize(image_array, None, 0, 255, cv2.NORM_MINMAX)
+        image_normalized = np.uint8(image_normalized)
+
+        # Save the normalized depth image
+        depth_image_path = os.path.join(pose_folder, 'depth_image_pixel_transform.png')
+        success = cv2.imwrite(depth_image_path, image_normalized)
+
+        # Save the raw NumPy array (depth values) as a CSV
+        depth_array_path = os.path.join(pose_folder, 'depth_array.csv')
+        np.savetxt(depth_array_path, image_array, delimiter=",", fmt='%d')
+
+        # Retrieve camera pose messages
+        pose = bag.message_by_topic('/camera/camera_pose')
+        camera_camera_pose_df = pd.read_csv(pose)
+
+        # Create transformation matrices
+        new_df = create_transformation_matrices(camera_camera_pose_df)
+
+        # Save the transformation matrix as a CSV
+        transformation_csv_path = os.path.join(pose_folder, 'camera_pose.csv')
+        new_df.to_csv(transformation_csv_path, index=False, header=False)
+
+        # Increment the counter for the next bag file
+        counter += 1
+
+    print("Processing complete for all bag files.")
      
 
 def main(args):
 
-    # Hard coded values as per the given dataset in ./Spring_24_Data/
-    data_path="fall_24_Data/"
+    # Hard coded values as per the given dataset in ./fall_24_Data/
+    data_path="fall_24_Data"
+    # Ensure the output directory exists
+    if not os.path.exists(data_path):
+        print(f"Error: {data_path} folder does not exist.")
+        return
+    
+    bags_folder_path = os.path.join(data_path, "bag_files") 
+    if not os.path.exists(data_path):
+        print(f"Error: {bags_folder_path} folder with .bag files does not exist.")
+        return
+    
+    extracted_bag_path = os.path.join(data_path, "extracted_bags")
+    if not os.path.exists(extracted_bag_path):
+            os.makedirs(extracted_bag_path)
+    else:
+        shutil.rmtree(extracted_bag_path)
+        os.makedirs(extracted_bag_path)
+    
+    sam_output_images = os.path.join(data_path, "sam_output_images")
+    if not os.path.exists(sam_output_images):
+            os.makedirs(sam_output_images)
+    else:
+        shutil.rmtree(sam_output_images)
+        os.makedirs(sam_output_images)
+    
+    extract_rosbag(bags_folder_path, extracted_bag_path)
 
-    ui_extrinsics1 = data_path+"pose_1/"+"camera_pose.csv"
-    ui_in_params = data_path+"intrinsic_params.csv"
-    ui_in_model = data_path+"distortion_model.csv"
-    ui_in_coeff = data_path+"intrinsic_coeffs.csv"
-    ui_depImg = data_path+"pose_1/"+"depth_image_pixel_transform.png"
-    ui_depArr = data_path+"pose_1/"+"depth_array.csv"
-    ui_image_path = data_path+"pose_1/"+"item_image.png"
+    ui_extrinsics1 = os.path.join(extracted_bag_path,"pose_1/camera_pose.csv")
+    ui_depImg = os.path.join(extracted_bag_path,"pose_1/depth_image_pixel_transform.png")
+    ui_depArr = os.path.join(extracted_bag_path,"pose_1/depth_array.csv")
+    ui_image_path = os.path.join(extracted_bag_path,"pose_1/image.png")
+    ui_in_params = os.path.join(data_path,"intrinsic_params.csv")
+    ui_in_model = os.path.join(data_path,"distortion_model.csv")
+    ui_in_coeff = os.path.join(data_path,"intrinsic_coeffs.csv")
 
     ui_rsObj = RealsenseSubscriber(ui_in_params,ui_in_model,ui_in_coeff,ui_depArr,ui_depImg)
 
@@ -825,7 +940,7 @@ def main(args):
         font= ('Helvetica 15 bold'),
         image=save_button_image,
         compound= "left",
-        command=lambda:  save_all_masks_to_file_and_transform(undo_mask_stack,data_path,ui_predictor, ui_pil_img)
+        command=lambda:  save_all_masks_to_file_and_transform(undo_mask_stack,data_path,extracted_bag_path,sam_output_images,ui_predictor, ui_pil_img)
     ).grid(row=0,column=5,sticky='nesw')
     
     save_recent_button_image = ImageTk.PhotoImage(Image.open('button_imgs/icons8-save-50.png'))
@@ -836,7 +951,7 @@ def main(args):
         font= ('Helvetica 15 bold'),
         image=save_recent_button_image,
         compound= "left",
-        command=lambda:  save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,ui_predictor, ui_pil_img)
+        command=lambda:  save_recent_mask_to_file_and_transform(undo_mask_stack,data_path,extracted_bag_path,sam_output_images,ui_predictor, ui_pil_img)
     ).grid(row=0,column=6,sticky='nesw')
     
     exit_button_image = ImageTk.PhotoImage(Image.open('button_imgs/icons8-close-window-50.png'))

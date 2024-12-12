@@ -32,8 +32,8 @@ class samplePose(object):
 
         # Final camera reference frame:
         self.final_camera_pose_base = None
-        self.final_camera_pose_base = None
-        self.final_camera_pose_base = None
+        self.R_final_camera_pose_base = None
+        self.p_final_camera_pose_base = None
 
         self.final_camera_pose_updated = None
         self.R_final_camera_pose_updated = None
@@ -83,40 +83,13 @@ class samplePose(object):
 
     '''Function to sample the camera positions from a Normal distribution:'''
     def samplePositions(self):
-        # self.x = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
-        # self.y = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
-        # self.z = np.reshape(np.random.normal(self.mu, self.sigma, self.num_points), self.num_points)
-        # self.points = np.zeros([self.num_points, self.dim])
-
-        # for i in range(self.num_points):
-        #     self.points[i, :] = np.asarray([self.x[i], self.y[i], self.z[i]])
-        
         
         # Number of points
         num_points = self.num_points
 
         # Radius of the hemisphere
-        # r = 0.75 * self.radius 
         r = self.radius 
 
-        # def fibonacci_sphere(samples=10000, radius=1):
-        #     points = []
-        #     offset = 2.0 / samples
-        #     increment = np.pi * (3.0 - np.sqrt(5.0))
-
-        #     for i in range(samples):
-        #         y = ((i * offset) - 1) + (offset / 2)
-        #         r = np.sqrt(1 - y * y) * radius
-        #         phi = i * increment  # Sequential order without random offset
-        #         x = np.cos(phi) * r
-        #         z = np.sin(phi) * r
-
-        #         points.append((x, y * radius, z))
-
-        #     return np.array(points)
-
-
-        # points = fibonacci_sphere(num_points, r)
         
         def sequential_hemisphere(total_points=1000, radius=1):
             points = []
@@ -154,15 +127,6 @@ class samplePose(object):
 
         self.points = points_array
       
-        
-        # Normalizing the points. This process ensures that the sampled points are on the surface of a unit sphere:
-        # for i in range(self.num_points):
-        #     point = self.points[i, :]
-        #     self.points[i, :] = np.divide(point, la.norm(point))
-
-        # Multiplying the points with the computed radius:
-        # self.points_updated = self.radius*self.points
-
         # Now selecting the points from a specific region/quadrants:
         self.points_selected = []
         for point in self.points:
