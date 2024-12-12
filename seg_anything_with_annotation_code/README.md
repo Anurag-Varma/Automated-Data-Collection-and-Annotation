@@ -37,5 +37,5 @@ pip install -r requirements.txt
 And run the code using 
 
 ```
-python click_segm.py --img <image_from_first_camera_pose> --i2 <image_from_second_camera_pose> --e1 <extrinsics_from_first_camera_pose> --e2 <extrinsics_from_second_camera_pose> --inparams <instrinsic_params> --incoeff <intrinsic_coefficients> --inmodel <intrinsic_distortion model> --inparams2 <instrinsic_params_for_second_pose> --incoeff2 <intrinsic_coefficients_for_second_pose> --inmodel2 <intrinsic_distortion_model_for_second_pose> --dimg <depth_image> --darr <depth_array>
+python click_segm_updated.py
 ```
